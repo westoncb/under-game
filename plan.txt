@@ -1,0 +1,168 @@
+TODO:
+How to generate cave shape and render
+	start with simple pink noise for shape
+	generate in javascript, write height values for top and bottom to 1d texture
+	shadow and cave edge/lip can be generated using those height vals as a distance func
+	main texture of cave comes from noise: infrequent large stalagmite things get colored
+		brightly beyond some height threshold; high frequency noise colore darkly when
+		dropping beneath the surface by some threshold.
+
+	Function (of x coord) that randomly distributes 'path points'
+		Algo here can change:
+			purely random
+			sinusoidal
+			square wave
+			Long slopes up and long slopes down
+	Function (of x coord) that returns a pair of path points: the one prior and after the current x pos
+	Base path is uses those two points to get an actual line
+	Cave 'carver' whose height is deterined by diffulty algo moves along path
+	That 'carving' provides base heights for cave top/bottom, to which we add pink noise
+	The above will be a continuous function of x, which we sample when forming the 1d tex
+
+How does the camera work (it's also kinematic, but has a follow target)
+	Force vector on camera is proportional to diff between camera pos and player body center
+	That force is capped at some maximum
+	Additionally, the initial force calculation must take into account other forces acting on
+	cam, so that the net force is proportional to diff
+	There is a 'backward' force on the camera that behaves like friction: if stops accelerating
+	forward it will come to a stop.
+	The camera's size/pos are used to convert from world to screen coords (part of the glsl state build)
+
+How difficulty evolves in time
+How does game reset work
+Collision between player/coin and player/cave
+Player kinematics
+
+
+StateTransformer
+	setUp()
+	tearDown()
+	handleEvent()
+	update()
+	render()
+
+Simulation extends StateTransformer
+	setUp() {}
+	tearDown() {}
+
+	update(deltaTime) {
+		While(!EventQueue.empty())
+			handleEvent(EventQueue.next())
+
+		subStateTransformer.update(deltaTime)	
+	}
+
+	handleEvent(event) {
+		// Handle 'state change' events by swapping the StateTransformer and calling setup/teardown
+
+		subStateTransformer.handleEvent(event)
+	}
+
+	render() {
+
+		subStateTransformer.render()					
+	}
+
+GameStateTransformer extends StateTransformer
+
+	setUp() {
+		this.state = {
+			player: {position, velocity, mass, activeForces, dying, dead},
+			coins: [{position, dying, dead}],
+			cave: {},
+			camera: {position, width, height, activeForces}
+			score,
+		}
+
+		this.uniforms = {};
+
+		// Set up left/right/up key listeners which
+		// emitt events like 'BOOST', "BRAKE", "ACCEL_UP"
+	}
+
+	update(deltaTime) {
+		// update player accel/vol/position
+		// update cave geometry
+		// generate coins routine
+		// general cleanup routine
+
+		updateKinematics()
+
+		findCollisions().forEach(col => EventQueue.push(collision event))
+
+		updateGLSLUniforms(this.state);
+	}
+
+	handleEvent(event) {
+		// collision events, deathStart, deathFinish, boost, break, 
+	}
+
+	updateKinematics() {
+		const entities = [camera, player];
+
+		entities.forEach(entity => {
+			// sum forces
+			// use f = ma to determine acceleration
+			// update velocity and position based on acceleration
+		});
+	}
+
+	updateGLSLUniforms(state) {
+
+	}
+
+	render {
+
+	}
+
+CaveGenerator {
+	constructor() {
+		this.junctures = []; //(x,y) points each time path slope changes
+	}
+
+	getTopSurfaceY(x) {
+		const noise = blah(x);
+
+		return getBasicTopSurfaceY(x) + noise;
+	}
+
+	getBottomSurfaceY(x) {
+		const noise = blah(x);
+
+		return getBasicBottomSurfaceY(x) - noise;
+	}
+
+	getBasicTopSurfaceY(x) {
+		const initialY = getPathY(x) + getApertureHeight(x);
+		const overhang = max(initialY - maxY, 0);
+
+		return initialY - overhang;
+	}
+
+	getBasicBottomSurfaceY(x) {
+		return getBasicTopSurfaceY(x) - getApertureHeight(x);
+	}
+
+	getApertureHeight(x) {
+		could event just be linear if we wanted to be simple
+	}
+
+	// These might also need to be functions of x like getApertureHeight(x)
+	// minFlatLength, maxFlatLength, minSlantLength, maxSlantLength, minSlope, maxSlope
+	
+	getPathY(x) {
+		Find `nextJuncture` via:
+		Add up previous section lengths to see if x is in unexplored territory
+			If so, generate a new juncture point
+				Every other section is flat/slant, so base on index
+				xPos is based on min/maxLength params
+				yPos is based on a random slope via min/maxSlope params (and a global min/max Y)
+			If not grab pre-generated juncture point
+
+		Find the path height via linear interpolation from `previousJuncture` to `nextJuncture`
+	}
+
+	getSectionLength(x) {
+
+	}
+}
