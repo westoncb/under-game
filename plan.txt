@@ -53,7 +53,7 @@ Simulation extends StateTransformer
 	}
 
 	handleEvent(event) {
-		// Handle 'state change' events by swapping the StateTransformer and calling setup/teardown
+		// Handle 'transformer change' events by swapping the StateTransformer and calling setup/teardown
 
 		subStateTransformer.handleEvent(event)
 	}
