@@ -135,21 +135,21 @@ class GameStateTransformer extends StateTransformer {
 		this.quadShaderCanvas.uniforms.playerPos.value = state.player.position;
 		this.quadShaderCanvas.uniforms.cameraPos.value = state.camera.position;
 
-		const newyHistoryIndex = Math.floor(state.player.position.x) % Y_HISTORY_LENGTH;
-		if (this.state.yHistoryIndex > newyHistoryIndex) {
+		const newYHistoryIndex = Math.floor(state.player.position.x) % Y_HISTORY_LENGTH;
+		if (this.state.yHistoryIndex > newYHistoryIndex) {
 			for (let i = this.state.yHistoryIndex; i < this.state.playerYHistory.length; i++) {
 				this.state.playerYHistory[i] = state.player.position.y;
 			}
-			for (let i = 0; i <= newyHistoryIndex; i++) {
+			for (let i = 0; i <= newYHistoryIndex; i++) {
 				this.state.playerYHistory[i] = state.player.position.y;
 			}
 		} else {
-			for (let i = this.state.yHistoryIndex; i <= newyHistoryIndex; i++) {
+			for (let i = this.state.yHistoryIndex; i <= newYHistoryIndex; i++) {
 				this.state.playerYHistory[i] = state.player.position.y;
 			}
 		}
 		
-		this.state.yHistoryIndex = newyHistoryIndex;
+		this.state.yHistoryIndex = newYHistoryIndex;
 
 		for (let i = 0; i < 4; i++) {
 			const position = state.player.position.clone().add(new THREE.Vector2(60 * -i, 0));
