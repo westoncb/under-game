@@ -3,6 +3,8 @@ const StateTransformer = require('./StateTransformer.js');
 const THREE = require('three');
 const AppState = require('./appState.js');
 
+const Y_HISTORY_LENGTH = 1000;
+
 class GameStateTransformer extends StateTransformer {
 	setUp() {
 		this.state = {
@@ -23,8 +25,8 @@ class GameStateTransformer extends StateTransformer {
 					 velocityCap: new THREE.Vector2(1000, 250),
 					},
 			keyStates: {},
-			playerXHistory: [],
-			xHistoryIndex: 0,
+			playerYHistory: [],
+			yHistoryIndex: 0,
 		};
 
 		const uniforms = {playerPos: {value: this.state.player.position}, cameraPos: {value: this.state.camera.position}, wormData: {value: new Float32Array(16)}};
@@ -133,24 +135,24 @@ class GameStateTransformer extends StateTransformer {
 		this.quadShaderCanvas.uniforms.playerPos.value = state.player.position;
 		this.quadShaderCanvas.uniforms.cameraPos.value = state.camera.position;
 
-		const newXHistoryIndex = Math.floor(state.player.position.x) % 1000;
-		if (this.state.xHistoryIndex > newXHistoryIndex) {
-			for (let i = this.state.xHistoryIndex; i < this.state.playerXHistory.length; i++) {
-				this.state.playerXHistory[i] = state.player.position.y;
+		const newyHistoryIndex = Math.floor(state.player.position.x) % Y_HISTORY_LENGTH;
+		if (this.state.yHistoryIndex > newyHistoryIndex) {
+			for (let i = this.state.yHistoryIndex; i < this.state.playerYHistory.length; i++) {
+				this.state.playerYHistory[i] = state.player.position.y;
 			}
-			for (let i = 0; i <= newXHistoryIndex; i++) {
-				this.state.playerXHistory[i] = state.player.position.y;
+			for (let i = 0; i <= newyHistoryIndex; i++) {
+				this.state.playerYHistory[i] = state.player.position.y;
 			}
 		} else {
-			for (let i = this.state.xHistoryIndex; i <= newXHistoryIndex; i++) {
-				this.state.playerXHistory[i] = state.player.position.y;
+			for (let i = this.state.yHistoryIndex; i <= newyHistoryIndex; i++) {
+				this.state.playerYHistory[i] = state.player.position.y;
 			}
 		}
 		
-		this.state.xHistoryIndex = newXHistoryIndex;
+		this.state.yHistoryIndex = newyHistoryIndex;
 
 		for (let i = 0; i < 4; i++) {
-			const position = state.player.position.clone().add(new THREE.Vector2(60 * window.devicePixelRatio * -i, 0));
+			const position = state.player.position.clone().add(new THREE.Vector2(60 * -i, 0));
 			position.y = this.getPastPlayerY(position.x);
 			this.setWormPartData(position, 0, i, this.quadShaderCanvas.uniforms.wormData);
 		}
@@ -165,8 +167,8 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	getPastPlayerY(x) {
-		const i = Math.floor(x) % 1000;
-		const y = this.state.playerXHistory[i];
+		const i = Math.floor(x) % Y_HISTORY_LENGTH;
+		const y = this.state.playerYHistory[i];
 
 		if (isNaN(y)) {
 			return 0;
