@@ -4,6 +4,7 @@ const THREE = require('three');
 const AppState = require('./appState.js');
 
 const Y_HISTORY_LENGTH = 1000;
+const METERS_TO_PIXELS = 50;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
@@ -16,13 +17,13 @@ class GameStateTransformer extends StateTransformer {
 					 activeForces: [],
 					 dying: false,
 					 dead: false,
-					 velocityCap: new THREE.Vector2(500, 1000),
+					 velocityCap: new THREE.Vector2(10, 2.5),
 					}, 
 			camera: {position: new THREE.Vector2(),
 					 velocity: new THREE.Vector2(),
 					 activeForces: [],
 					 mass: 2,
-					 velocityCap: new THREE.Vector2(1000, 250),
+					 velocityCap: new THREE.Vector2(10, 20),
 					},
 			keyStates: {},
 			playerYHistory: [],
@@ -33,10 +34,8 @@ class GameStateTransformer extends StateTransformer {
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', this.getFragmentShader(), uniforms);
 
-		this.state.player.position.x = AppState.canvasWidth * 0.1;
-		this.state.player.position.y = AppState.canvasHeight / 2;
-
-		this.state.camera.position = new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2);
+		this.state.player.position = this.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 2));
+		this.state.camera.position = this.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
 
 		const canvas = this.quadShaderCanvas.renderer.domElement;
 		canvas.tabIndex = 0;
@@ -88,7 +87,7 @@ class GameStateTransformer extends StateTransformer {
 			entity.activeForces.length = 0;
 		});
 
-		this.state.player.position.y = Math.max(this.state.player.position.y, AppState.canvasHeight/2);
+		this.state.player.position.y = Math.max(this.state.player.position.y, AppState.canvasHeight/2 / METERS_TO_PIXELS);
 	}
 
 	assignEnvironmentalForces() {
@@ -102,26 +101,39 @@ class GameStateTransformer extends StateTransformer {
 
 		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude));
 
-		player.activeForces.push(new THREE.Vector2(500, 0));
+		player.activeForces.push(new THREE.Vector2(20, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new THREE.Vector2(0, 1000));			
+			player.activeForces.push(new THREE.Vector2(0, 250));			
 		}
 
-		const c = 500;
+		const c = 20;
 		const vec = player.position.clone().sub(camera.position);
-		// const scale = this.smoothstep(AppState.canvasWidth / 15, AppState.canvasWidth, vec.length());
-
-		// console.log("scale", scale);
+		const scale = this.smoothstep(this.toMeters(AppState.canvasWidth / 5), this.toMeters(AppState.canvasWidth), vec.length());
 		
 		vec.normalize();
 		vec.multiplyScalar(1.1);
 		vec.multiplyScalar(vec.length() * vec.length() * c);
-		// vec.multiplyScalar(c);
 
-		// vec.sub(vec.clone().normalize().multiplyScalar(Math.max(vec.length() - 30, 0)));
+		// console.log("camera force, player force", vec, player.activeForces[0], player.position);
 		
 		camera.activeForces.push(vec);
+	}
+
+	toPixels(scalar) {
+		return scalar * METERS_TO_PIXELS;
+	}
+
+	toMeters(scalar) {
+		return scalar / METERS_TO_PIXELS;
+	}
+
+	toPixelsV(vec) {
+		return vec.clone().multiplyScalar(METERS_TO_PIXELS);
+	}
+
+	toMetersV(vec) {
+		return vec.clone().multiplyScalar(1 / METERS_TO_PIXELS);
 	}
 
 	smoothstep (min, max, value) {
@@ -130,29 +142,31 @@ class GameStateTransformer extends StateTransformer {
 	};
 
 	mapStateToUniforms(state) {
+		const playerPos = this.toPixelsV(this.state.player.position);
+		const cameraPos = this.toPixelsV(this.state.camera.position);
 
 		this.quadShaderCanvas.uniforms.time.value = state.time;
-		this.quadShaderCanvas.uniforms.playerPos.value = state.player.position;
-		this.quadShaderCanvas.uniforms.cameraPos.value = state.camera.position;
+		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
+		this.quadShaderCanvas.uniforms.cameraPos.value = cameraPos;
 
-		const newYHistoryIndex = Math.floor(state.player.position.x) % Y_HISTORY_LENGTH;
+		const newYHistoryIndex = Math.floor(playerPos.x) % Y_HISTORY_LENGTH;
 		if (this.state.yHistoryIndex > newYHistoryIndex) {
 			for (let i = this.state.yHistoryIndex; i < this.state.playerYHistory.length; i++) {
-				this.state.playerYHistory[i] = state.player.position.y;
+				this.state.playerYHistory[i] = playerPos.y;
 			}
 			for (let i = 0; i <= newYHistoryIndex; i++) {
-				this.state.playerYHistory[i] = state.player.position.y;
+				this.state.playerYHistory[i] = playerPos.y;
 			}
 		} else {
 			for (let i = this.state.yHistoryIndex; i <= newYHistoryIndex; i++) {
-				this.state.playerYHistory[i] = state.player.position.y;
+				this.state.playerYHistory[i] = playerPos.y;
 			}
 		}
 		
 		this.state.yHistoryIndex = newYHistoryIndex;
 
 		for (let i = 0; i < 4; i++) {
-			const position = state.player.position.clone().add(new THREE.Vector2(60 * -i, 0));
+			const position = playerPos.clone().add(new THREE.Vector2(100 * -i, 0));
 			position.y = this.getPastPlayerY(position.x);
 			this.setWormPartData(position, 0, i, this.quadShaderCanvas.uniforms.wormData);
 		}
