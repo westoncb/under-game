@@ -1,3 +1,4 @@
+const THREE = require('three');
 const EventQueue = require('./eventQueue.js');
 const Simulation = require('./simulation.js');
 const GameStateTransformer = require('./gameStateTransformer.js');
@@ -7,17 +8,17 @@ window.onload = () => {
 
 	EventQueue.push({name: 'change_transformer', transformer: new GameStateTransformer()});
 
+	const clock = new THREE.Clock();
+
 	class MainLoop {
 		static update(time) {
 			requestAnimationFrame( MainLoop.update );
 
-			simulation.update(time, time - MainLoop.lastTime);
+			simulation.update(time, clock.getDelta());
 			simulation.render();
 
-			MainLoop.lastTime = time;
 		}
 	}
 
-	MainLoop.lastTime = 0;
-	MainLoop.update();
+	MainLoop.update(0);
 };
