@@ -3,7 +3,7 @@ const StateTransformer = require('./StateTransformer.js');
 const THREE = require('three');
 const AppState = require('./appState.js');
 
-const Y_HISTORY_LENGTH = 1000;
+const Y_HISTORY_LENGTH = 10000;
 const METERS_TO_PIXELS = 50;
 
 class GameStateTransformer extends StateTransformer {
@@ -17,13 +17,13 @@ class GameStateTransformer extends StateTransformer {
 					 activeForces: [],
 					 dying: false,
 					 dead: false,
-					 velocityCap: new THREE.Vector2(10, 2.5),
+					 velocityCap: new THREE.Vector2(12, 20),
 					}, 
 			camera: {position: new THREE.Vector2(),
 					 velocity: new THREE.Vector2(),
 					 activeForces: [],
 					 mass: 2,
-					 velocityCap: new THREE.Vector2(10, 20),
+					 velocityCap: new THREE.Vector2(20, 60),
 					},
 			keyStates: {},
 			playerYHistory: [],
@@ -72,22 +72,33 @@ class GameStateTransformer extends StateTransformer {
 		const entities = [this.state.player, this.state.camera];
 
 		entities.forEach(entity => {
-			entity.activeForces.forEach(force => {
-				const a = new THREE.Vector2(force.x / entity.mass, force.y / entity.mass);
-				const vol = entity.velocity;
+			if (entity === this.state.camera) {
+				entity.position.addScaledVector(this.state.player.position.clone().sub(this.state.camera.position), 
+												1 / 30);
+			} else {
+				const totalForce = new THREE.Vector2();
+				entity.activeForces.forEach(force => {
+					totalForce.add(force);
+				});
 
-				vol.addScaledVector(a, deltaTime);
+				const acceleration = new THREE.Vector2(totalForce.x / entity.mass, totalForce.y / entity.mass);
+				const velocity = entity.velocity;
 
-				vol.x = Math.min(Math.abs(vol.x), Math.abs(entity.velocityCap.x)) * ((vol.x + 1) / Math.abs(vol.x + 1));
-				vol.y = Math.min(Math.abs(vol.y), Math.abs(entity.velocityCap.y)) * ((vol.y + 1) / Math.abs(vol.y + 1));
+				velocity.addScaledVector(acceleration, deltaTime);
 
-				entity.position.addScaledVector(vol, deltaTime);
-			});
+				// Cap velocity
+				velocity.x = Math.min(Math.abs(velocity.x), Math.abs(entity.velocityCap.x)) * ((velocity.x + 1) / Math.abs(velocity.x + 1));
+				// velocity.y = Math.min(Math.abs(velocity.y), Math.abs(entity.velocityCap.y)) * ((velocity.y + 1) / Math.abs(velocity.y + 1));
+
+				entity.position.addScaledVector(velocity, deltaTime);
+
+				// console.log("force, acceleration, velocity, position", totalForce, acceleration, velocity, entity.position);
+			}
 
 			entity.activeForces.length = 0;
 		});
 
-		this.state.player.position.y = Math.max(this.state.player.position.y, AppState.canvasHeight/2 / METERS_TO_PIXELS);
+		// this.state.player.position.y = Math.max(this.state.player.position.y, this.toMeters(AppState.canvasHeight/2));
 	}
 
 	assignEnvironmentalForces() {
@@ -99,25 +110,23 @@ class GameStateTransformer extends StateTransformer {
 		const earthRadius = 6.38e6;
 		const gravityForceMagnitude = (gravityConstant * earthMass * player.mass) / 6.38e6 ** 2;
 
-		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude));
+		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude * 2));
 
-		player.activeForces.push(new THREE.Vector2(20, 0));
+		player.activeForces.push(new THREE.Vector2(80, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new THREE.Vector2(0, 250));			
+			player.activeForces.push(new THREE.Vector2(0, 500));			
 		}
 
-		const c = 20;
-		const vec = player.position.clone().sub(camera.position);
-		const scale = this.smoothstep(this.toMeters(AppState.canvasWidth / 5), this.toMeters(AppState.canvasWidth), vec.length());
+		// const c = 20;
+		// const vec = player.position.clone().sub(camera.position);
+		// const scale = this.smoothstep(this.toMeters(AppState.canvasWidth / 5), this.toMeters(AppState.canvasWidth), vec.length());
 		
-		vec.normalize();
-		vec.multiplyScalar(1.1);
-		vec.multiplyScalar(vec.length() * vec.length() * c);
-
-		// console.log("camera force, player force", vec, player.activeForces[0], player.position);
+		// vec.normalize();
+		// vec.multiplyScalar(1.1);
+		// vec.multiplyScalar(vec.length() * vec.length() * c);
 		
-		camera.activeForces.push(vec);
+		// camera.activeForces.push(vec);
 	}
 
 	toPixels(scalar) {
@@ -166,7 +175,7 @@ class GameStateTransformer extends StateTransformer {
 		this.state.yHistoryIndex = newYHistoryIndex;
 
 		for (let i = 0; i < 4; i++) {
-			const position = playerPos.clone().add(new THREE.Vector2(100 * -i, 0));
+			const position = playerPos.clone().add(new THREE.Vector2(150 * -i, 0));
 			position.y = this.getPastPlayerY(position.x);
 			this.setWormPartData(position, 0, i, this.quadShaderCanvas.uniforms.wormData);
 		}
@@ -225,6 +234,15 @@ class GameStateTransformer extends StateTransformer {
 			  return -1.0 + 2.0*fract(sin(p)*43758.5453123);
 			}
 
+			// Similar to fOpUnionRound, but more lipschitz-y at acute angles
+			// (and less so at 90 degrees). Useful when fudging around too much
+			// by MediaMolecule, from Alex Evans' siggraph slides
+			// http://mercury.sexy/hg_sdf/
+			float fOpUnionSoft(float a, float b, float r) {
+				float e = max(r - abs(a - b), 0.);
+				return min(a, b) - e*e*0.25/r;
+			}
+
 			// Simplex noise from https://www.shadertoy.com/view/Msf3WH
 			float noise( in vec2 p ) {
 			  const float K1 = 0.366025404; // (sqrt(3)-1)/2;
@@ -245,39 +263,51 @@ class GameStateTransformer extends StateTransformer {
 			}
 
 			// unsigned round box
+			// http://mercury.sexy/hg_sdf/
 			float udRoundBox( vec2 p, vec2 b, float r )
 			{
 			  return length(max(abs(p)-b,0.0))-r;
 			}
 
-			vec4 getWormBlockColor(vec2 pos, vec2 coord, vec2 uv) {
-				float dist = udRoundBox(coord - pos, vec2(40, 40), 16.) / 48.;
+			float wormDist(vec2 coord, vec2 boxSize, float cornerRadius) {
+				float dist1 = udRoundBox(coord - wormData[0].xy, boxSize, cornerRadius);
+				float dist2 = udRoundBox(coord - wormData[1].xy, boxSize, cornerRadius);
+				float dist3 = udRoundBox(coord - wormData[2].xy, boxSize, cornerRadius);
+				float dist4 = udRoundBox(coord - wormData[3].xy, boxSize, cornerRadius);
 
-				if (dist < 0.) {
+				float radius = 250.;
+
+				return fOpUnionSoft(fOpUnionSoft(fOpUnionSoft(dist1, dist2, radius), dist3, radius), dist4, radius);
+			}
+
+			vec4 getWormBlockColor(vec2 coord, vec2 uv) {
+				float sideLength = 40.;
+				float cornerRadius = 20.;
+				float dist = wormDist(coord, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
+
+				if (dist < 0.3) {
 					vec2 uv1 = vec2(uv.x + 1., uv.y);
-					float noise1 = noise((uv1 * 20. + vec2(0.005 * time, 0.)));
+					float noise1 = noise((uv1 * 10.));
 					vec2 uv2 = vec2(uv.x - 1., uv.y);
-					float noise2 = noise((uv2 * 20. + vec2(0.005 * time, 0.)));
+					float noise2 = noise((uv2 * 10.));
 					vec2 uv3 = vec2(uv.x, uv.y + 1.);
-					float noise3 = noise((uv3 * 20. + vec2(0.005 * time, 0.)));
+					float noise3 = noise((uv3 * 10.));
 					vec2 uv4 = vec2(uv.x, uv.y - 1.);
-					float noise4 = noise((uv4 * 20. + vec2(0.005 * time, 0.)));
+					float noise4 = noise((uv4 * 10.));
 
-					float brighten = -dist;
-					return vec4((noise1 + noise2 + noise3 + noise4) + brighten, 0. + brighten, 0.15 + brighten, 1.0);	
+					float blueMod = smoothstep(0.2, 0.3, dist) / 3.;
+					float brighten = -dist / 2. + blueMod;					
+					return vec4((noise1 + noise2 + noise3 + noise4) / 2. + brighten, 0.08 + brighten, brighten, 1.0);	
 				} else {
 					return vec4(0);
 				}
 			}
 
 			vec4 getWormColor(vec2 coord, vec2 uv) {
-				for (int i = 0; i < 4; i++) {
-					vec2 pos = wormData[i].xy;
-					vec4 color = getWormBlockColor(pos, coord, uv);
+				vec4 color = getWormBlockColor(coord, uv);
 
-					if (length(color) > 0.) {
-						return color;
-					}
+				if (length(color) > 0.) {
+					return color;
 				}
 
 				return vec4(0);
@@ -288,14 +318,14 @@ class GameStateTransformer extends StateTransformer {
 				vec2 p = coord.xy / resolution.xy;
 				vec2 uv = p*vec2(resolution.x/resolution.y,1.0);
 
-				float theNoise = noise((uv * 20. + vec2(0.005, 0.)));
+				float theNoise = noise((uv * 20.));
 
 				vec4 wormColor = getWormColor(coord, uv);
 
 				if (length(wormColor) > 0.) {
 					gl_FragColor = wormColor;	
 				} else {
-					gl_FragColor = vec4(theNoise / 3.5, 0., 0.15, 1.0);
+					gl_FragColor = vec4(theNoise / 1.5, 0., 0.15, 1.0);
 				}
 				
 			}
