@@ -304,6 +304,25 @@ class GameStateTransformer extends StateTransformer {
 			  return length(max(abs(p)-b,0.0))-r;
 			}
 
+			vec4 bgColor(vec2 uv) {
+				float theNoise = noise((uv * 25.));
+				float noise = (theNoise * theNoise) / 2. / 2.5;
+				return vec4(0., noise * 1.1, noise * 2., 1.0);	
+			}
+
+			float coolWormNoise(vec2 uv) {
+				vec2 uv1 = vec2(uv.x + 1., uv.y);
+				float noise1 = noise((uv1 * 10.));
+				vec2 uv2 = vec2(uv.x - 1., uv.y);
+				float noise2 = noise((uv2 * 10.));
+				vec2 uv3 = vec2(uv.x, uv.y + 1.);
+				float noise3 = noise((uv3 * 10.));
+				vec2 uv4 = vec2(uv.x, uv.y - 1.);
+				float noise4 = noise((uv4 * 10.));
+
+				return (noise1 + noise2 + noise3 + noise4) / 3.;
+			}
+
 			float wormDist(vec2 coord, vec2 boxSize, float cornerRadius) {
 				float dist1 = udRoundBox(coord - wormData[0].xy, boxSize, cornerRadius);
 				float dist2 = udRoundBox(coord - wormData[1].xy, boxSize, cornerRadius);
@@ -320,36 +339,31 @@ class GameStateTransformer extends StateTransformer {
 				return fOpUnionSoft(wormDataUnion, wormData2Union, radius);
 			}
 
-			vec4 getWormBlockColor(vec2 coord, vec2 uv) {
+			vec4 getWormBlockColor(vec2 coord, vec2 uv, vec2 bgUV) {
 				float sideLength = 30.;
 				float cornerRadius = 15.;
 				float dist = wormDist(coord, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
 
 				if (dist < 0.3) {
-					vec2 uv1 = vec2(uv.x + 1., uv.y);
-					float noise1 = noise((uv1 * 10.));
-					vec2 uv2 = vec2(uv.x - 1., uv.y);
-					float noise2 = noise((uv2 * 10.));
-					vec2 uv3 = vec2(uv.x, uv.y + 1.);
-					float noise3 = noise((uv3 * 10.));
-					vec2 uv4 = vec2(uv.x, uv.y - 1.);
-					float noise4 = noise((uv4 * 10.));
+					
 
-					float borderMod = smoothstep(0.15, 0.3, dist) / 2.;
+					float borderMod = smoothstep(0.15, 0.3, dist) / 3.;
 					float brighten = -dist / 2. + borderMod;			
 
-					float r = (noise1 + noise2 + noise3 + noise4) / 2. + brighten;
+					float r = brighten;
 					float g = (sin(time) + 1.) / 2. * 0.2 + brighten;
 					float b = (cos(time) + 1.) / 2. * 0.2 + brighten;
 
-					return vec4(r, g, b, 1.0);	
+					float c = coolWormNoise(bgUV);
+
+					return vec4(r + c, g, b, 1.0);	
 				} else {
 					return vec4(0);
 				}
 			}
 
-			vec4 getWormColor(vec2 coord, vec2 uv) {
-				vec4 color = getWormBlockColor(coord, uv);
+			vec4 getWormColor(vec2 coord, vec2 uv, vec2 bgUV) {
+				vec4 color = getWormBlockColor(coord, uv, bgUV);
 
 				if (length(color) > 0.) {
 					return color;
@@ -358,7 +372,23 @@ class GameStateTransformer extends StateTransformer {
 				return vec4(0);
 			}
 
+			// https://www.shadertoy.com/view/Msf3WH
+			float fractalNoise(vec2 uv) {
+				float f = 0.;
+		        mat2 m = mat2( 1.6,  1.2, -1.2,  1.6 );
+				f  = 0.5000*noise( uv ); uv = m*uv;
+				f += 0.2500*noise( uv ); uv = m*uv;
+				f += 0.1250*noise( uv ); uv = m*uv;
+				f += 0.0625*noise( uv ); uv = m*uv;
+
+				return f;
+			}
+
 			void main(void) {
+				vec2 bgCoord = (gl_FragCoord.xy + (cameraPos.xy * 0.5 - (resolution.xy / 2.)));
+				vec2 bgP = bgCoord / resolution.xy;
+				vec2 bgUV = bgP * vec2(resolution.x/resolution.y,1.0);
+
 				vec2 coord = gl_FragCoord.xy + (cameraPos.xy - (resolution.xy / 2.));
 				vec2 p = coord / resolution.xy;
 				vec2 movingUV = p * vec2(resolution.x/resolution.y,1.0);
@@ -366,20 +396,24 @@ class GameStateTransformer extends StateTransformer {
 				vec2 screenP = gl_FragCoord.xy / resolution.xy;
 				vec2 uv = screenP * vec2(resolution.x/resolution.y,1.0);
 
-				float theNoise = noise((movingUV * 10.));
-
-				vec4 wormColor = getWormColor(coord, movingUV);
+				vec4 wormColor = getWormColor(coord, movingUV, bgUV);
 
 				if (length(wormColor) > 0.) {
 					gl_FragColor = wormColor;
 				}
 				else {
 					float height = texture2D(caveHeights, vec2(uv.x / 2., 0.)).a;
+					float dist = coord.y - height;
 
 					if (coord.y > height || coord.y < height - 800.) {
-						gl_FragColor = vec4(0., 0., 0.8, 1.0);
+						if (coord.y < height - 800.) {
+							dist = height - 800. - coord.y;
+						}
+
+						float glow = (1. - smoothstep(0., 50., dist)) * 0.8;
+						gl_FragColor = vec4(glow, 0.2 - (glow * 0.1), 0.45 - (glow * 0.22), 1.0);
 					} else {
-						gl_FragColor = vec4(theNoise / 4.5, 0., 0.15, 1.0);	
+						gl_FragColor = bgColor(bgUV);
 					}					
 				}
 				
