@@ -1,10 +1,12 @@
 const QuadShaderCanvas = require('./quadShaderCanvas.js');
 const StateTransformer = require('./StateTransformer.js');
-const THREE = require('three');
+const CaveGenerator = require('./caveGenerator.js');
 const AppState = require('./appState.js');
+const Util = require('./util.js');
+
+const THREE = require('three');
 
 const Y_HISTORY_LENGTH = 10000;
-const METERS_TO_PIXELS = 50;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
@@ -30,12 +32,18 @@ class GameStateTransformer extends StateTransformer {
 			yHistoryIndex: 0,
 		};
 
-		const uniforms = {playerPos: {value: this.state.player.position}, cameraPos: {value: this.state.camera.position}, wormData: {value: new Float32Array(16)}, wormData2: {value: new Float32Array(16)}};
+		const uniforms = {playerPos: {value: this.state.player.position},
+						  cameraPos: {value: this.state.camera.position},
+						  wormData: {value: new Float32Array(16)},
+						  wormData2: {value: new Float32Array(16)},};
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', this.getFragmentShader(), uniforms);
 
-		this.state.player.position = this.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 2));
-		this.state.camera.position = this.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
+		this.caveHeightTex = new THREE.DataTexture(new Float32Array(AppState.canvasWidth/8), AppState.canvasWidth/8, 1, THREE.AlphaFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampWrapping, THREE.ClampWrapping, THREE.LinearFilter, THREE.LinearFilter, 1);
+		uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
+
+		this.state.player.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 2));
+		this.state.camera.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
 
 		const canvas = this.quadShaderCanvas.renderer.domElement;
 		canvas.tabIndex = 0;
@@ -48,6 +56,18 @@ class GameStateTransformer extends StateTransformer {
 		canvas.addEventListener('keyup', (e) => {
 			this.state.keyStates[e.key] = false;
 		});
+
+		this.focused = true;
+
+		canvas.addEventListener('blur', (e) => {
+			this.focused = false;
+		});
+		canvas.addEventListener('focus', (e) => {
+			this.focused = true;
+		});
+
+		this.caveGenerator = new CaveGenerator();
+		this.done = false;
 	}
 
 	handleEvent(event) {}
@@ -57,15 +77,30 @@ class GameStateTransformer extends StateTransformer {
 		// generate coins routine
 		// general cleanup routine
 
-		this.assignEnvironmentalForces();
+		if (this.focused) {
+			this.assignEnvironmentalForces();
 
-		this.findCollisions().forEach(collisionEvent => EventQueue.push(collisionEvent));
+			this.findCollisions().forEach(collisionEvent => EventQueue.push(collisionEvent));
 
-		this.updateKinematics(deltaTime);
+			this.updateKinematics(deltaTime);
 
-		this.state.time = time;
+			const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
+			for (let i = 0; i < AppState.canvasWidth / 4; i++) {
+				const y = this.caveGenerator.getTopSurfaceY(i*8 + camX);
+				this.caveHeightTex.image.data[i] = Util.toPixels(y);
+			}
+			this.caveHeightTex.needsUpdate = true;
+			if (!this.done) {
+				this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
+				this.done = true;
+			}
 
-		this.mapStateToUniforms(this.state);
+			this.state.time = time;
+
+			this.mapStateToUniforms(this.state);
+		}
+
+		// console.log(this.caveGenerator.getTopSurfaceY(this.state.player.position.x));
 	}
 
 	updateKinematics(deltaTime) {
@@ -99,7 +134,7 @@ class GameStateTransformer extends StateTransformer {
 			entity.activeForces.length = 0;
 		});
 
-		// this.state.player.position.y = Math.max(this.state.player.position.y, this.toMeters(AppState.canvasHeight/2));
+		// this.state.player.position.y = Math.max(this.state.player.position.y, Util.toMeters(AppState.canvasHeight/2));
 	}
 
 	assignEnvironmentalForces() {
@@ -121,7 +156,7 @@ class GameStateTransformer extends StateTransformer {
 
 		// const c = 20;
 		// const vec = player.position.clone().sub(camera.position);
-		// const scale = this.smoothstep(this.toMeters(AppState.canvasWidth / 5), this.toMeters(AppState.canvasWidth), vec.length());
+		// const scale = this.smoothstep(Util.toMeters(AppState.canvasWidth / 5), Util.toMeters(AppState.canvasWidth), vec.length());
 		
 		// vec.normalize();
 		// vec.multiplyScalar(1.1);
@@ -130,30 +165,14 @@ class GameStateTransformer extends StateTransformer {
 		// camera.activeForces.push(vec);
 	}
 
-	toPixels(scalar) {
-		return scalar * METERS_TO_PIXELS;
-	}
-
-	toMeters(scalar) {
-		return scalar / METERS_TO_PIXELS;
-	}
-
-	toPixelsV(vec) {
-		return vec.clone().multiplyScalar(METERS_TO_PIXELS);
-	}
-
-	toMetersV(vec) {
-		return vec.clone().multiplyScalar(1 / METERS_TO_PIXELS);
-	}
-
 	smoothstep (min, max, value) {
 	  var x = Math.max(0, Math.min(1, (value-min)/(max-min)));
 	  return x*x*(3 - 2*x);
 	};
 
 	mapStateToUniforms(state) {
-		const playerPos = this.toPixelsV(this.state.player.position);
-		const cameraPos = this.toPixelsV(this.state.camera.position);
+		const playerPos = Util.toPixelsV(this.state.player.position);
+		const cameraPos = Util.toPixelsV(this.state.camera.position);
 
 		this.quadShaderCanvas.uniforms.time.value = state.time / 1000;
 		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
@@ -227,6 +246,7 @@ class GameStateTransformer extends StateTransformer {
 			uniform float time;
 			uniform mat4 wormData;
 			uniform mat4 wormData2;
+			uniform sampler2D caveHeights;
 
 			float beat(float value, float intensity, float frequency) {
 			  float v = atan(sin(value * 3.145 * frequency) * intensity);
@@ -340,17 +360,27 @@ class GameStateTransformer extends StateTransformer {
 
 			void main(void) {
 				vec2 coord = gl_FragCoord.xy + (cameraPos.xy - (resolution.xy / 2.));
-				vec2 p = coord.xy / resolution.xy;
-				vec2 uv = p*vec2(resolution.x/resolution.y,1.0);
+				vec2 p = coord / resolution.xy;
+				vec2 movingUV = p * vec2(resolution.x/resolution.y,1.0);
 
-				float theNoise = noise((uv * 20.));
+				vec2 screenP = gl_FragCoord.xy / resolution.xy;
+				vec2 uv = screenP * vec2(resolution.x/resolution.y,1.0);
 
-				vec4 wormColor = getWormColor(coord, uv);
+				float theNoise = noise((movingUV * 10.));
+
+				vec4 wormColor = getWormColor(coord, movingUV);
 
 				if (length(wormColor) > 0.) {
-					gl_FragColor = wormColor;	
-				} else {
-					gl_FragColor = vec4(theNoise / 1.5, 0., 0.15, 1.0);
+					gl_FragColor = wormColor;
+				}
+				else {
+					float height = texture2D(caveHeights, vec2(uv.x / 2., 0.)).a;
+
+					if (coord.y > height || coord.y < height - 800.) {
+						gl_FragColor = vec4(0., 0., 0.8, 1.0);
+					} else {
+						gl_FragColor = vec4(theNoise / 4.5, 0., 0.15, 1.0);	
+					}					
 				}
 				
 			}
