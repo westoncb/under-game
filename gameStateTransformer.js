@@ -7,6 +7,7 @@ const Util = require('./util.js');
 const THREE = require('three');
 
 const Y_HISTORY_LENGTH = 10000;
+const CAVE_SAMPLE_DIST = 8;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
@@ -39,35 +40,15 @@ class GameStateTransformer extends StateTransformer {
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', this.getFragmentShader(), uniforms);
 
-		this.caveHeightTex = new THREE.DataTexture(new Float32Array(AppState.canvasWidth/8), AppState.canvasWidth/8, 1, THREE.AlphaFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampWrapping, THREE.ClampWrapping, THREE.LinearFilter, THREE.LinearFilter, 1);
-		uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
+		this.caveHeightTex = this.getCaveDataTexture();
+		this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
 
 		this.state.player.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 4));
 		this.state.camera.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
 
-		const canvas = this.quadShaderCanvas.renderer.domElement;
-		canvas.tabIndex = 0;
-		canvas.focus();
-		canvas.style.outline = 'none';
-
-		canvas.addEventListener('keydown', (e) => {
-			this.state.keyStates[e.key] = true;
-		});
-		canvas.addEventListener('keyup', (e) => {
-			this.state.keyStates[e.key] = false;
-		});
-
-		this.focused = true;
-
-		canvas.addEventListener('blur', (e) => {
-			this.focused = false;
-		});
-		canvas.addEventListener('focus', (e) => {
-			this.focused = true;
-		});
+		this.setUpBrowserInputHandlers();
 
 		this.caveGenerator = new CaveGenerator();
-		this.done = false;
 	}
 
 	handleEvent(event) {}
@@ -86,23 +67,12 @@ class GameStateTransformer extends StateTransformer {
 
 			this.updateKinematics(deltaTime);
 
-			const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
-			for (let i = 0; i < AppState.canvasWidth / 4; i++) {
-				const y = this.caveGenerator.getTopSurfaceY(i*8 + camX);
-				this.caveHeightTex.image.data[i] = Util.toPixels(y);
-			}
-			this.caveHeightTex.needsUpdate = true;
-			if (!this.done) {
-				this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
-				this.done = true;
-			}
+			this.updateCaveGeometry();
 
 			this.state.time = time;
 
 			this.mapStateToUniforms(this.state);
 		}
-
-		// console.log(this.caveGenerator.getTopSurfaceY(this.state.player.position.x));
 	}
 
 	updateKinematics(deltaTime) {
@@ -129,14 +99,10 @@ class GameStateTransformer extends StateTransformer {
 				// velocity.y = Math.min(Math.abs(velocity.y), Math.abs(entity.velocityCap.y)) * ((velocity.y + 1) / Math.abs(velocity.y + 1));
 
 				entity.position.addScaledVector(velocity, deltaTime);
-
-				// console.log("force, acceleration, velocity, position", totalForce, acceleration, velocity, entity.position);
 			}
 
 			entity.activeForces.length = 0;
 		});
-
-		// this.state.player.position.y = Math.max(this.state.player.position.y, Util.toMeters(AppState.canvasHeight/2));
 	}
 
 	assignEnvironmentalForces() {
@@ -159,35 +125,51 @@ class GameStateTransformer extends StateTransformer {
 		}
 	}
 
+	updateCaveGeometry() {
+		const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
+		const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST / window.devicePixelRatio);
+
+		for (let i = 0; i < texelCount; i++) {
+			const y = this.caveGenerator.getTopSurfaceY(i*CAVE_SAMPLE_DIST + camX);
+			this.caveHeightTex.image.data[i] = Util.toPixels(y);
+		}
+
+		this.caveHeightTex.needsUpdate = true;
+	}
+
 	mapStateToUniforms(state) {
-		const playerPos = Util.toPixelsV(this.state.player.position);
-		const cameraPos = Util.toPixelsV(this.state.camera.position);
+		const playerPos = Util.toPixelsV(state.player.position);
+		const cameraPos = Util.toPixelsV(state.camera.position);
 
 		this.quadShaderCanvas.uniforms.time.value = state.time / 1000;
 		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
 		this.quadShaderCanvas.uniforms.cameraPos.value = cameraPos;
 
-		const newYHistoryIndex = Math.floor(playerPos.x) % Y_HISTORY_LENGTH;
-		if (this.state.yHistoryIndex > newYHistoryIndex) {
-			for (let i = this.state.yHistoryIndex; i < this.state.playerYHistory.length; i++) {
-				this.state.playerYHistory[i] = playerPos.y;
-			}
-			for (let i = 0; i <= newYHistoryIndex; i++) {
-				this.state.playerYHistory[i] = playerPos.y;
-			}
-		} else {
-			for (let i = this.state.yHistoryIndex; i <= newYHistoryIndex; i++) {
-				this.state.playerYHistory[i] = playerPos.y;
-			}
-		}
-		
-		this.state.yHistoryIndex = newYHistoryIndex;
+		this.updatePlayerYHistory(state, playerPos);
 
+		// Update trailing worm block positions
 		for (let i = 0; i < 8; i++) {
 			const position = playerPos.clone().add(new THREE.Vector2(80 * -i, 0));
 			position.y = this.getPastPlayerY(position.x);
 			this.setWormPartData(position, 0, i);
 		}
+	}
+
+	updatePlayerYHistory(state, playerPos) {
+		const newYHistoryIndex = Math.floor(playerPos.x) % Y_HISTORY_LENGTH;
+		if (state.yHistoryIndex > newYHistoryIndex) {
+			for (let i = state.yHistoryIndex; i < state.playerYHistory.length; i++) {
+				state.playerYHistory[i] = playerPos.y;
+			}
+			for (let i = 0; i <= newYHistoryIndex; i++) {
+				state.playerYHistory[i] = playerPos.y;
+			}
+		} else {
+			for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
+				state.playerYHistory[i] = playerPos.y;
+			}
+		}
+		this.state.yHistoryIndex = newYHistoryIndex;
 	}
 
 	setWormPartData(position, rotation, index) {
@@ -223,6 +205,29 @@ class GameStateTransformer extends StateTransformer {
 
 	render() {
 		this.quadShaderCanvas.render();
+	}
+
+	setUpBrowserInputHandlers() {
+		const canvas = this.quadShaderCanvas.renderer.domElement;
+		canvas.tabIndex = 0;
+		canvas.focus();
+		canvas.style.outline = 'none';
+
+		canvas.addEventListener('keydown', (e) => {
+			this.state.keyStates[e.key] = true;
+		});
+		canvas.addEventListener('keyup', (e) => {
+			this.state.keyStates[e.key] = false;
+		});
+
+		this.focused = true;
+
+		canvas.addEventListener('blur', (e) => {
+			this.focused = false;
+		});
+		canvas.addEventListener('focus', (e) => {
+			this.focused = true;
+		});
 	}
 
 	getFragmentShader() {
@@ -410,6 +415,20 @@ class GameStateTransformer extends StateTransformer {
 		`;
 
 		return fs;
+	}
+
+	getCaveDataTexture() {
+		return new THREE.DataTexture(new Float32Array(AppState.canvasWidth/CAVE_SAMPLE_DIST),
+														   AppState.canvasWidth/CAVE_SAMPLE_DIST,
+														   1,
+														   THREE.AlphaFormat,
+														   THREE.FloatType,
+														   THREE.UVMapping,
+														   THREE.ClampWrapping,
+														   THREE.ClampWrapping,
+														   THREE.LinearFilter,
+														   THREE.LinearFilter,
+														   1);
 	}
 
 	tearDown() {}
