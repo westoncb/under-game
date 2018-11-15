@@ -42,7 +42,7 @@ class GameStateTransformer extends StateTransformer {
 		this.caveHeightTex = new THREE.DataTexture(new Float32Array(AppState.canvasWidth/8), AppState.canvasWidth/8, 1, THREE.AlphaFormat, THREE.FloatType, THREE.UVMapping, THREE.ClampWrapping, THREE.ClampWrapping, THREE.LinearFilter, THREE.LinearFilter, 1);
 		uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
 
-		this.state.player.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 2));
+		this.state.player.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 4));
 		this.state.camera.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
 
 		const canvas = this.quadShaderCanvas.renderer.domElement;
@@ -73,9 +73,11 @@ class GameStateTransformer extends StateTransformer {
 	handleEvent(event) {}
 
 	update(time, deltaTime) {
-		// update cave geometry
 		// generate coins routine
 		// general cleanup routine
+
+		// Convert to seconds
+		this.time = time / 1000;
 
 		if (this.focused) {
 			this.assignEnvironmentalForces();
@@ -146,29 +148,16 @@ class GameStateTransformer extends StateTransformer {
 		const earthRadius = 6.38e6;
 		const gravityForceMagnitude = (gravityConstant * earthMass * player.mass) / 6.38e6 ** 2;
 
-		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude * 2));
+		const introScale = Util.smoothstep(0, 3, this.time);
+
+		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude * 2 * introScale));
 
 		player.activeForces.push(new THREE.Vector2(80, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new THREE.Vector2(0, 500));			
+			player.activeForces.push(new THREE.Vector2(0, 500 * introScale));			
 		}
-
-		// const c = 20;
-		// const vec = player.position.clone().sub(camera.position);
-		// const scale = this.smoothstep(Util.toMeters(AppState.canvasWidth / 5), Util.toMeters(AppState.canvasWidth), vec.length());
-		
-		// vec.normalize();
-		// vec.multiplyScalar(1.1);
-		// vec.multiplyScalar(vec.length() * vec.length() * c);
-		
-		// camera.activeForces.push(vec);
 	}
-
-	smoothstep (min, max, value) {
-	  var x = Math.max(0, Math.min(1, (value-min)/(max-min)));
-	  return x*x*(3 - 2*x);
-	};
 
 	mapStateToUniforms(state) {
 		const playerPos = Util.toPixelsV(this.state.player.position);
