@@ -5,6 +5,7 @@ const AppState = require('./appState.js');
 const Util = require('./util.js');
 
 const THREE = require('three');
+const vec2 = THREE.Vector2;
 
 const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 8;
@@ -14,20 +15,20 @@ class GameStateTransformer extends StateTransformer {
 	setUp() {
 		this.state = {
 			time: 0,
-			player: {position: new THREE.Vector2(),
-					 velocity: new THREE.Vector2(),
+			player: {position: new vec2(),
+					 velocity: new vec2(),
 					 rotation: 0,
 					 mass: 10,
 					 activeForces: [],
 					 dying: false,
 					 dead: false,
-					 velocityCap: new THREE.Vector2(12, 20),
+					 velocityCap: new vec2(12, 20),
 					}, 
-			camera: {position: new THREE.Vector2(),
-					 velocity: new THREE.Vector2(),
+			camera: {position: new vec2(),
+					 velocity: new vec2(),
 					 activeForces: [],
 					 mass: 2,
-					 velocityCap: new THREE.Vector2(20, 60),
+					 velocityCap: new vec2(20, 60),
 					},
 			keyStates: {},
 			playerYHistory: [],
@@ -44,8 +45,9 @@ class GameStateTransformer extends StateTransformer {
 		this.caveHeightTex = this.getCaveDataTexture();
 		this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
 
-		this.state.player.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth * 0.1, AppState.canvasHeight / 4));
-		this.state.camera.position = Util.toMetersV(new THREE.Vector2(AppState.canvasWidth/2, AppState.canvasHeight/2));
+		this.state.player.position = this.getInitialPlayerPosition();
+		this.state.camera.position = Util.toMetersV(new vec2(AppState.canvasWidth/2,
+															 AppState.canvasHeight/2));
 
 		this.setUpBrowserInputHandlers();
 
@@ -81,16 +83,16 @@ class GameStateTransformer extends StateTransformer {
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
-				const target = this.state.player.position.clone().add(new THREE.Vector2(10, 0));
+				const target = this.state.player.position.clone().add(new vec2(10, 0));
 				entity.position.addScaledVector(target.sub(this.state.camera.position), 
 												1 / 10);
 			} else {
-				const totalForce = new THREE.Vector2();
+				const totalForce = new vec2();
 				entity.activeForces.forEach(force => {
 					totalForce.add(force);
 				});
 
-				const acceleration = new THREE.Vector2(totalForce.x / entity.mass, totalForce.y / entity.mass);
+				const acceleration = new vec2(totalForce.x / entity.mass, totalForce.y / entity.mass);
 				const velocity = entity.velocity;
 
 				velocity.addScaledVector(acceleration, deltaTime);
@@ -143,12 +145,12 @@ class GameStateTransformer extends StateTransformer {
 		// Weaken gravity and thrust for the first few seconds
 		const introScale = Util.smoothstep(0, 3, this.state.time);
 
-		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude * 2 * introScale));
+		player.activeForces.push(new vec2(0, -gravityForceMagnitude * 2 * introScale));
 
-		player.activeForces.push(new THREE.Vector2(80, 0));
+		player.activeForces.push(new vec2(80, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new THREE.Vector2(0, 500 * introScale));			
+			player.activeForces.push(new vec2(0, 500 * introScale));			
 		}
 	}
 
@@ -202,12 +204,13 @@ class GameStateTransformer extends StateTransformer {
 		return Util.toPixelsV(vec);
 	}
 
+	// Previous y position of worm head segment in pixels
 	getPastPlayerY(x) {
 		const i = Math.floor(x) % Y_HISTORY_LENGTH;
 		const y = this.state.playerYHistory[i];
 
 		if (isNaN(y)) {
-			return 0;
+			return Util.toPixels(this.getInitialPlayerPosition().y);
 		} else {
 			return y;
 		}
@@ -219,29 +222,6 @@ class GameStateTransformer extends StateTransformer {
 
 	render() {
 		this.quadShaderCanvas.render();
-	}
-
-	setUpBrowserInputHandlers() {
-		const canvas = this.quadShaderCanvas.renderer.domElement;
-		canvas.tabIndex = 0;
-		canvas.focus();
-		canvas.style.outline = 'none';
-
-		canvas.addEventListener('keydown', (e) => {
-			this.state.keyStates[e.key] = true;
-		});
-		canvas.addEventListener('keyup', (e) => {
-			this.state.keyStates[e.key] = false;
-		});
-
-		this.focused = true;
-
-		canvas.addEventListener('blur', (e) => {
-			this.focused = false;
-		});
-		canvas.addEventListener('focus', (e) => {
-			this.focused = true;
-		});
 	}
 
 	getFragmentShader() {
@@ -430,6 +410,11 @@ class GameStateTransformer extends StateTransformer {
 		return fs;
 	}
 
+	getInitialPlayerPosition() {
+		return Util.toMetersV(new vec2(AppState.canvasWidth * 0.1,
+												AppState.canvasHeight / 4));
+	}
+
 	getCaveDataTexture() {
 		return new THREE.DataTexture(new Float32Array(AppState.canvasWidth/CAVE_SAMPLE_DIST),
 														   AppState.canvasWidth/CAVE_SAMPLE_DIST,
@@ -442,6 +427,29 @@ class GameStateTransformer extends StateTransformer {
 														   THREE.LinearFilter,
 														   THREE.LinearFilter,
 														   1);
+	}
+
+	setUpBrowserInputHandlers() {
+		const canvas = this.quadShaderCanvas.renderer.domElement;
+		canvas.tabIndex = 0;
+		canvas.focus();
+		canvas.style.outline = 'none';
+
+		canvas.addEventListener('keydown', (e) => {
+			this.state.keyStates[e.key] = true;
+		});
+		canvas.addEventListener('keyup', (e) => {
+			this.state.keyStates[e.key] = false;
+		});
+
+		this.focused = true;
+
+		canvas.addEventListener('blur', (e) => {
+			this.focused = false;
+		});
+		canvas.addEventListener('focus', (e) => {
+			this.focused = true;
+		});
 	}
 
 	tearDown() {}
