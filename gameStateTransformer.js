@@ -228,6 +228,11 @@ class GameStateTransformer extends StateTransformer {
 			uniform mat4 wormData;
 			uniform mat4 wormData2;
 
+			float beat(float value, float intensity, float frequency) {
+			  float v = atan(sin(value * 3.145 * frequency) * intensity);
+			  return (v + 3.145 / 2.) / 3.145;
+			}
+
 			// Maximum/minumum elements of a vector
 			float vmax(vec2 v) {
 				return max(v.x, v.y);
