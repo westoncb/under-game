@@ -3,17 +3,72 @@ const AppState = require('./appState.js');
 
 const THREE = require('three');
 
+var Simple1DNoise = function() {
+    var MAX_VERTICES = 256;
+    var MAX_VERTICES_MASK = MAX_VERTICES -1;
+    var amplitude = 1;
+    var scale = 1;
+
+    var r = [];
+
+    for ( var i = 0; i < MAX_VERTICES; ++i ) {
+        r.push(Math.random());
+    }
+
+    var getVal = function( x ){
+        var scaledX = x * scale;
+        var xFloor = Math.floor(scaledX);
+        var t = scaledX - xFloor;
+        var tRemapSmoothstep = t * t * ( 3 - 2 * t );
+
+        /// Modulo using &
+        var xMin = xFloor & MAX_VERTICES_MASK;
+        var xMax = ( xMin + 1 ) & MAX_VERTICES_MASK;
+
+        var y = lerp( r[ xMin ], r[ xMax ], tRemapSmoothstep );
+
+        return y * amplitude;
+    };
+
+    /**
+    * Linear interpolation function.
+    * @param a The lower integer value
+    * @param b The upper integer value
+    * @param t The value between the two
+    * @returns {number}
+    */
+    var lerp = function(a, b, t ) {
+        return a * ( 1 - t ) + b * t;
+    };
+
+    // return the API
+    return {
+        getVal: getVal,
+        setAmplitude: function(newAmplitude) {
+            amplitude = newAmplitude;
+        },
+        setScale: function(newScale) {
+            scale = newScale;
+        }
+    };
+};
+
 class CaveGenerator {
 	constructor() {
-		this.junctures = [new THREE.Vector2(-100, 5)]; //(x,y) points each time path slope changes
+		this.junctures = [new THREE.Vector2(-100, 5), new THREE.Vector2(100, 5)]; //(x,y) points each time path slope changes
+
+		this.generator = new Simple1DNoise();
 	}
 
 	getTopSurfaceY(x) {
 		x = Util.toMeters(x);
 		// const noise = Math.sin(x);
-		const noise = 0;
 
-		return this.getBasicTopSurfaceY(x) + noise;
+		return this.getBasicTopSurfaceY(x) + this.noise(x);
+	}
+
+	noise(x) {
+		return this.generator.getVal(x / 3) ** 2 * 4;
 	}
 
 	getBottomSurfaceY(x) {
@@ -45,16 +100,6 @@ class CaveGenerator {
 	// minFlatLength, maxFlatLength, minSlantLength, maxSlantLength, minSlope, maxSlope
 	
 	getPathY(x) {
-		// Find `nextJuncture` via:
-		// Add up previous section lengths to see if x is in unexplored territory
-		// 	If so, generate a new juncture point
-		// 		Every other section is flat/slant, so base on index
-		// 		xPos is based on min/maxLength params
-		// 		yPos is based on a random slope via min/maxSlope params (and a global min/max Y)
-		// 	If not grab pre-generated juncture point
-
-		// Find the path height via linear interpolation from `previousJuncture` to `nextJuncture`
-
 		const result = this.getPriorJunctureAndIndex(x);
 		const priorJuncture = result.juncture;
 		const followingJuncture = this.getFollowingJuncture(x, result.index);
