@@ -6,8 +6,9 @@ const Util = require('./util.js');
 
 const THREE = require('three');
 
-const Y_HISTORY_LENGTH = 10000;
+const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 8;
+const WORM_BLOCK_SPACING = 80;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
@@ -57,9 +58,6 @@ class GameStateTransformer extends StateTransformer {
 		// generate coins routine
 		// general cleanup routine
 
-		// Convert to seconds
-		this.time = time / 1000;
-
 		if (this.focused) {
 			this.assignEnvironmentalForces();
 
@@ -69,7 +67,10 @@ class GameStateTransformer extends StateTransformer {
 
 			this.updateCaveGeometry();
 
-			this.state.time = time;
+			this.updateWorm();
+
+			// Convert to seconds
+			this.state.time = time / 1000;
 
 			this.mapStateToUniforms(this.state);
 		}
@@ -105,6 +106,31 @@ class GameStateTransformer extends StateTransformer {
 		});
 	}
 
+	updateWorm() {
+		const playerPosInPixels = this.cameraTransform(this.state.player.position);
+
+		this.updatePlayerYHistory(playerPosInPixels);
+	}
+
+	updatePlayerYHistory(playerPosInPixels) {
+		const state = this.state;
+		const newYHistoryIndex = Math.floor(playerPosInPixels.x) % Y_HISTORY_LENGTH;
+
+		if (state.yHistoryIndex > newYHistoryIndex) {
+			for (let i = state.yHistoryIndex; i < state.playerYHistory.length; i++) {
+				state.playerYHistory[i] = playerPosInPixels.y;
+			}
+			for (let i = 0; i <= newYHistoryIndex; i++) {
+				state.playerYHistory[i] = playerPosInPixels.y;
+			}
+		} else {
+			for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
+				state.playerYHistory[i] = playerPosInPixels.y;
+			}
+		}
+		state.yHistoryIndex = newYHistoryIndex;
+	}
+
 	assignEnvironmentalForces() {
 		const player = this.state.player;
 		const camera = this.state.camera;
@@ -114,7 +140,8 @@ class GameStateTransformer extends StateTransformer {
 		const earthRadius = 6.38e6;
 		const gravityForceMagnitude = (gravityConstant * earthMass * player.mass) / 6.38e6 ** 2;
 
-		const introScale = Util.smoothstep(0, 3, this.time);
+		// Weaken gravity and thrust for the first few seconds
+		const introScale = Util.smoothstep(0, 3, this.state.time);
 
 		player.activeForces.push(new THREE.Vector2(0, -gravityForceMagnitude * 2 * introScale));
 
@@ -138,38 +165,21 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	mapStateToUniforms(state) {
-		const playerPos = Util.toPixelsV(state.player.position);
-		const cameraPos = Util.toPixelsV(state.camera.position);
+		const playerPos = this.cameraTransform(state.player.position);
+		const cameraPos = this.cameraTransform(state.camera.position);
 
-		this.quadShaderCanvas.uniforms.time.value = state.time / 1000;
+		this.quadShaderCanvas.uniforms.time.value = state.time;
 		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
 		this.quadShaderCanvas.uniforms.cameraPos.value = cameraPos;
 
-		this.updatePlayerYHistory(state, playerPos);
-
 		// Update trailing worm block positions
-		for (let i = 0; i < 8; i++) {
-			const position = playerPos.clone().add(new THREE.Vector2(80 * -i, 0));
-			position.y = this.getPastPlayerY(position.x);
-			this.setWormPartData(position, 0, i);
+		// and copy into matrix uniforms
+		for (let i = 0; i < 6; i++) {
+			const playerPosClone = playerPos.clone();
+			playerPosClone.x += -WORM_BLOCK_SPACING * i;
+			playerPosClone.y = this.getPastPlayerY(playerPosClone.x);
+			this.setWormPartData(playerPosClone, 0, i);
 		}
-	}
-
-	updatePlayerYHistory(state, playerPos) {
-		const newYHistoryIndex = Math.floor(playerPos.x) % Y_HISTORY_LENGTH;
-		if (state.yHistoryIndex > newYHistoryIndex) {
-			for (let i = state.yHistoryIndex; i < state.playerYHistory.length; i++) {
-				state.playerYHistory[i] = playerPos.y;
-			}
-			for (let i = 0; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPos.y;
-			}
-		} else {
-			for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPos.y;
-			}
-		}
-		this.state.yHistoryIndex = newYHistoryIndex;
 	}
 
 	setWormPartData(position, rotation, index) {
@@ -186,6 +196,10 @@ class GameStateTransformer extends StateTransformer {
 			wormData.value[i + 1] = position.y;
 			wormData.value[i + 2] = rotation;
 		}
+	}
+
+	cameraTransform(vec) {
+		return Util.toPixelsV(vec);
 	}
 
 	getPastPlayerY(x) {
@@ -256,13 +270,6 @@ class GameStateTransformer extends StateTransformer {
 				return vmax(abs(p)-b);
 			}
 
-			vec2 hash( vec2 p ) {
-			  p = vec2( dot(p,vec2(127.1,311.7)),
-			        dot(p,vec2(269.5,183.3)) );
-
-			  return -1.0 + 2.0*fract(sin(p)*43758.5453123);
-			}
-
 			// Similar to fOpUnionRound, but more lipschitz-y at acute angles
 			// (and less so at 90 degrees). Useful when fudging around too much
 			// by MediaMolecule, from Alex Evans' siggraph slides
@@ -270,6 +277,14 @@ class GameStateTransformer extends StateTransformer {
 			float fOpUnionSoft(float a, float b, float r) {
 				float e = max(r - abs(a - b), 0.);
 				return min(a, b) - e*e*0.25/r;
+			}
+
+			// https://www.shadertoy.com/view/Msf3WH
+			vec2 hash( vec2 p ) {
+			  p = vec2( dot(p,vec2(127.1,311.7)),
+			        dot(p,vec2(269.5,183.3)) );
+
+			  return -1.0 + 2.0*fract(sin(p)*43758.5453123);
 			}
 
 			// Simplex noise from https://www.shadertoy.com/view/Msf3WH
@@ -339,8 +354,6 @@ class GameStateTransformer extends StateTransformer {
 				float dist = wormDist(coord, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
 
 				if (dist < 0.3) {
-					
-
 					float borderMod = smoothstep(0.15, 0.3, dist) / 3.;
 					float brighten = -dist / 2. + borderMod;			
 
