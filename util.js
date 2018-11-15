@@ -1,5 +1,7 @@
 const THREE = require('three');
 
+const METERS_TO_PIXELS = 50;
+
 class Util {
   // See https://hansmuller-webkit.blogspot.com/2013/02/where-is-mouse.html
   static canvasMousePos(event, canvas) {
@@ -32,6 +34,22 @@ class Util {
       x: canvasX / window.devicePixelRatio,
       y: canvasY / window.devicePixelRatio,
     };
+  }
+
+  static toPixels(scalar) {
+    return scalar * METERS_TO_PIXELS;
+  }
+
+  static toMeters(scalar) {
+    return scalar / METERS_TO_PIXELS;
+  }
+
+  static toPixelsV(vec) {
+    return vec.clone().multiplyScalar(METERS_TO_PIXELS);
+  }
+
+  static toMetersV(vec) {
+    return vec.clone().multiplyScalar(1 / METERS_TO_PIXELS);
   }
 }
 
