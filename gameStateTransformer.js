@@ -30,7 +30,7 @@ class GameStateTransformer extends StateTransformer {
 			yHistoryIndex: 0,
 		};
 
-		const uniforms = {playerPos: {value: this.state.player.position}, cameraPos: {value: this.state.camera.position}, wormData: {value: new Float32Array(16)}};
+		const uniforms = {playerPos: {value: this.state.player.position}, cameraPos: {value: this.state.camera.position}, wormData: {value: new Float32Array(16)}, wormData2: {value: new Float32Array(16)}};
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', this.getFragmentShader(), uniforms);
 
@@ -73,8 +73,9 @@ class GameStateTransformer extends StateTransformer {
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
-				entity.position.addScaledVector(this.state.player.position.clone().sub(this.state.camera.position), 
-												1 / 30);
+				const target = this.state.player.position.clone().add(new THREE.Vector2(10, 0));
+				entity.position.addScaledVector(target.sub(this.state.camera.position), 
+												1 / 10);
 			} else {
 				const totalForce = new THREE.Vector2();
 				entity.activeForces.forEach(force => {
@@ -154,7 +155,7 @@ class GameStateTransformer extends StateTransformer {
 		const playerPos = this.toPixelsV(this.state.player.position);
 		const cameraPos = this.toPixelsV(this.state.camera.position);
 
-		this.quadShaderCanvas.uniforms.time.value = state.time;
+		this.quadShaderCanvas.uniforms.time.value = state.time / 1000;
 		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
 		this.quadShaderCanvas.uniforms.cameraPos.value = cameraPos;
 
@@ -174,19 +175,27 @@ class GameStateTransformer extends StateTransformer {
 		
 		this.state.yHistoryIndex = newYHistoryIndex;
 
-		for (let i = 0; i < 4; i++) {
-			const position = playerPos.clone().add(new THREE.Vector2(150 * -i, 0));
+		for (let i = 0; i < 8; i++) {
+			const position = playerPos.clone().add(new THREE.Vector2(80 * -i, 0));
 			position.y = this.getPastPlayerY(position.x);
-			this.setWormPartData(position, 0, i, this.quadShaderCanvas.uniforms.wormData);
+			this.setWormPartData(position, 0, i);
 		}
 	}
 
-	setWormPartData(position, rotation, index, wormData) {
-		const i = index * 4;
-
-		wormData.value[i + 0] = position.x;
-		wormData.value[i + 1] = position.y;
-		wormData.value[i + 2] = rotation;
+	setWormPartData(position, rotation, index) {
+		if (index < 4) {
+			const i = index * 4;
+			const wormData = this.quadShaderCanvas.uniforms.wormData;
+			wormData.value[i + 0] = position.x;
+			wormData.value[i + 1] = position.y;
+			wormData.value[i + 2] = rotation;
+		} else {
+			const i = (index - 4) * 4;
+			const wormData = this.quadShaderCanvas.uniforms.wormData2;
+			wormData.value[i + 0] = position.x;
+			wormData.value[i + 1] = position.y;
+			wormData.value[i + 2] = rotation;
+		}
 	}
 
 	getPastPlayerY(x) {
@@ -217,6 +226,7 @@ class GameStateTransformer extends StateTransformer {
 			uniform vec2 cameraPos;
 			uniform float time;
 			uniform mat4 wormData;
+			uniform mat4 wormData2;
 
 			// Maximum/minumum elements of a vector
 			float vmax(vec2 v) {
@@ -274,15 +284,20 @@ class GameStateTransformer extends StateTransformer {
 				float dist2 = udRoundBox(coord - wormData[1].xy, boxSize, cornerRadius);
 				float dist3 = udRoundBox(coord - wormData[2].xy, boxSize, cornerRadius);
 				float dist4 = udRoundBox(coord - wormData[3].xy, boxSize, cornerRadius);
+				float dist5 = udRoundBox(coord - wormData2[0].xy, boxSize, cornerRadius);
+				float dist6 = udRoundBox(coord - wormData2[1].xy, boxSize, cornerRadius);
 
-				float radius = 250.;
+				float radius = 80.;
 
-				return fOpUnionSoft(fOpUnionSoft(fOpUnionSoft(dist1, dist2, radius), dist3, radius), dist4, radius);
+				float wormDataUnion = fOpUnionSoft(fOpUnionSoft(fOpUnionSoft(dist1, dist2, radius), dist3, radius), dist4, radius);
+				float wormData2Union = fOpUnionSoft(dist5, dist6, radius);
+
+				return fOpUnionSoft(wormDataUnion, wormData2Union, radius);
 			}
 
 			vec4 getWormBlockColor(vec2 coord, vec2 uv) {
-				float sideLength = 40.;
-				float cornerRadius = 20.;
+				float sideLength = 30.;
+				float cornerRadius = 15.;
 				float dist = wormDist(coord, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
 
 				if (dist < 0.3) {
@@ -295,9 +310,14 @@ class GameStateTransformer extends StateTransformer {
 					vec2 uv4 = vec2(uv.x, uv.y - 1.);
 					float noise4 = noise((uv4 * 10.));
 
-					float blueMod = smoothstep(0.2, 0.3, dist) / 3.;
-					float brighten = -dist / 2. + blueMod;					
-					return vec4((noise1 + noise2 + noise3 + noise4) / 2. + brighten, 0.08 + brighten, brighten, 1.0);	
+					float borderMod = smoothstep(0.15, 0.3, dist) / 2.;
+					float brighten = -dist / 2. + borderMod;			
+
+					float r = (noise1 + noise2 + noise3 + noise4) / 2. + brighten;
+					float g = (sin(time) + 1.) / 2. * 0.2 + brighten;
+					float b = (cos(time) + 1.) / 2. * 0.2 + brighten;
+
+					return vec4(r, g, b, 1.0);	
 				} else {
 					return vec4(0);
 				}
