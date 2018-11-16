@@ -1,6 +1,6 @@
 const THREE = require('three');
 
-const METERS_TO_PIXELS = 50;
+const METERS_TO_PIXELS = 50 * window.devicePixelRatio;
 
 // https://www.michaelbromley.co.uk/blog/simple-1d-noise-in-javascript/
 var Simple1DNoise = function() {
@@ -89,12 +89,12 @@ class Util {
     };
   }
 
-  static toPixels(scalar) {
-    return scalar * METERS_TO_PIXELS;
+  static toPixels(meters) {
+    return meters * METERS_TO_PIXELS;
   }
 
-  static toMeters(scalar) {
-    return scalar / METERS_TO_PIXELS;
+  static toMeters(pixels) {
+    return pixels / METERS_TO_PIXELS;
   }
 
   static toPixelsV(vec) {

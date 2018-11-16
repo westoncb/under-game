@@ -9,7 +9,7 @@ const vec2 = THREE.Vector2;
 
 const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 8;
-const WORM_BLOCK_SPACING = 80;
+const WORM_BLOCK_SPACING = 0.8;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
@@ -22,13 +22,13 @@ class GameStateTransformer extends StateTransformer {
 					 activeForces: [],
 					 dying: false,
 					 dead: false,
-					 velocityCap: new vec2(12, 20),
+					 velocityCap: new vec2(6, 10),
 					}, 
 			camera: {position: new vec2(),
 					 velocity: new vec2(),
 					 activeForces: [],
 					 mass: 2,
-					 velocityCap: new vec2(20, 60),
+					 velocityCap: new vec2(10, 30),
 					},
 			keyStates: {},
 			playerYHistory: [],
@@ -38,7 +38,9 @@ class GameStateTransformer extends StateTransformer {
 		const uniforms = {playerPos: {value: this.state.player.position},
 						  cameraPos: {value: this.state.camera.position},
 						  wormData: {value: new Float32Array(16)},
-						  wormData2: {value: new Float32Array(16)},};
+						  wormData2: {value: new Float32Array(16)},
+						  caveAperture: {value: 0.75}
+						 }
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', this.getFragmentShader(), uniforms);
 
@@ -83,7 +85,7 @@ class GameStateTransformer extends StateTransformer {
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
-				const target = this.state.player.position.clone().add(new vec2(10, 0));
+				const target = this.state.player.position.clone().add(new vec2(5, 0));
 				entity.position.addScaledVector(target.sub(this.state.camera.position), 
 												1 / 10);
 			} else {
@@ -109,25 +111,23 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	updateWorm() {
-		const playerPosInPixels = this.cameraTransform(this.state.player.position);
-
-		this.updatePlayerYHistory(playerPosInPixels);
+		this.updatePlayerYHistory(this.state.player.position);
 	}
 
-	updatePlayerYHistory(playerPosInPixels) {
+	updatePlayerYHistory(playerPos) {
 		const state = this.state;
-		const newYHistoryIndex = Math.floor(playerPosInPixels.x) % Y_HISTORY_LENGTH;
+		const newYHistoryIndex = Math.floor(Util.toPixels(playerPos.x)) % Y_HISTORY_LENGTH;
 
 		if (state.yHistoryIndex > newYHistoryIndex) {
 			for (let i = state.yHistoryIndex; i < state.playerYHistory.length; i++) {
-				state.playerYHistory[i] = playerPosInPixels.y;
+				state.playerYHistory[i] = playerPos.y;
 			}
 			for (let i = 0; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPosInPixels.y;
+				state.playerYHistory[i] = playerPos.y;
 			}
 		} else {
 			for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPosInPixels.y;
+				state.playerYHistory[i] = playerPos.y;
 			}
 		}
 		state.yHistoryIndex = newYHistoryIndex;
@@ -145,22 +145,22 @@ class GameStateTransformer extends StateTransformer {
 		// Weaken gravity and thrust for the first few seconds
 		const introScale = Util.smoothstep(0, 3, this.state.time);
 
-		player.activeForces.push(new vec2(0, -gravityForceMagnitude * 2 * introScale));
+		player.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
 
-		player.activeForces.push(new vec2(80, 0));
+		player.activeForces.push(new vec2(40, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new vec2(0, 500 * introScale));			
+			player.activeForces.push(new vec2(0, 250 * introScale));			
 		}
 	}
 
 	updateCaveGeometry() {
 		const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
-		const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST / window.devicePixelRatio);
+		const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST);
 
 		for (let i = 0; i < texelCount; i++) {
 			const y = this.caveGenerator.getTopSurfaceY(i*CAVE_SAMPLE_DIST + camX);
-			this.caveHeightTex.image.data[i] = Util.toPixels(y);
+			this.caveHeightTex.image.data[i] = this.cameraTransform(new vec2(0, y)).y;
 		}
 
 		this.caveHeightTex.needsUpdate = true;
@@ -169,18 +169,20 @@ class GameStateTransformer extends StateTransformer {
 	mapStateToUniforms(state) {
 		const playerPos = this.cameraTransform(state.player.position);
 		const cameraPos = this.cameraTransform(state.camera.position);
+		const uniforms = this.quadShaderCanvas.uniforms;
 
-		this.quadShaderCanvas.uniforms.time.value = state.time;
-		this.quadShaderCanvas.uniforms.playerPos.value = playerPos;
-		this.quadShaderCanvas.uniforms.cameraPos.value = cameraPos;
+		uniforms.time.value = state.time;
+		uniforms.playerPos.value = playerPos;
+		uniforms.cameraPos.value = cameraPos;
 
 		// Update trailing worm block positions
 		// and copy into matrix uniforms
 		for (let i = 0; i < 6; i++) {
-			const playerPosClone = playerPos.clone();
+			const playerPosClone = state.player.position.clone();
 			playerPosClone.x += -WORM_BLOCK_SPACING * i;
 			playerPosClone.y = this.getPastPlayerY(playerPosClone.x);
-			this.setWormPartData(playerPosClone, 0, i);
+			const rotation = state.player.velocity.clone().normalize().angle();
+			this.setWormPartData(this.cameraTransform(playerPosClone), rotation, i);
 		}
 	}
 
@@ -201,16 +203,25 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	cameraTransform(vec) {
-		return Util.toPixelsV(vec);
-	}
+		const campPosInPixels = Util.toPixelsV(this.state.camera.position);
+		const camShift = new vec2(-campPosInPixels.x + AppState.canvasWidth/2,
+								  -campPosInPixels.y + AppState.canvasHeight/2);
+		const newVec = Util.toPixelsV(vec).add(camShift);
+		newVec.x /= AppState.canvasWidth;
+		newVec.y /= AppState.canvasHeight;
+
+		newVec.x *= (AppState.canvasWidth / AppState.canvasHeight);
+
+		return newVec;
+	}	
 
 	// Previous y position of worm head segment in pixels
 	getPastPlayerY(x) {
-		const i = Math.floor(x) % Y_HISTORY_LENGTH;
+		const i = Math.floor(Util.toPixels(x)) % Y_HISTORY_LENGTH;
 		const y = this.state.playerYHistory[i];
 
 		if (isNaN(y)) {
-			return Util.toPixels(this.getInitialPlayerPosition().y);
+			return this.getInitialPlayerPosition().y;
 		} else {
 			return y;
 		}
@@ -221,7 +232,9 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	render() {
-		this.quadShaderCanvas.render();
+		if (this.focused) {
+			this.quadShaderCanvas.render();
+		}
 	}
 
 	getFragmentShader() {
@@ -235,19 +248,13 @@ class GameStateTransformer extends StateTransformer {
 			uniform mat4 wormData;
 			uniform mat4 wormData2;
 			uniform sampler2D caveHeights;
+			uniform float caveAperture;
+
+			#define PI 3.14159265
 
 			float beat(float value, float intensity, float frequency) {
-			  float v = atan(sin(value * 3.145 * frequency) * intensity);
-			  return (v + 3.145 / 2.) / 3.145;
-			}
-
-			// Maximum/minumum elements of a vector
-			float vmax(vec2 v) {
-				return max(v.x, v.y);
-			}
-
-			float fBox2Cheap(vec2 p, vec2 b) {
-				return vmax(abs(p)-b);
+			  float v = atan(sin(value * PI * frequency) * intensity);
+			  return (v + PI / 2.) / PI;
 			}
 
 			// Similar to fOpUnionRound, but more lipschitz-y at acute angles
@@ -290,7 +297,7 @@ class GameStateTransformer extends StateTransformer {
 			// http://mercury.sexy/hg_sdf/
 			float udRoundBox( vec2 p, vec2 b, float r )
 			{
-			  return length(max(abs(p)-b,0.0))-r;
+			  	return length(max(abs(p)-b, 0.0))-r;
 			}
 
 			vec4 bgColor(vec2 uv) {
@@ -312,30 +319,30 @@ class GameStateTransformer extends StateTransformer {
 				return (noise1 + noise2 + noise3 + noise4) / 3.;
 			}
 
-			float wormDist(vec2 coord, vec2 boxSize, float cornerRadius) {
-				float dist1 = udRoundBox(coord - wormData[0].xy, boxSize, cornerRadius);
-				float dist2 = udRoundBox(coord - wormData[1].xy, boxSize, cornerRadius);
-				float dist3 = udRoundBox(coord - wormData[2].xy, boxSize, cornerRadius);
-				float dist4 = udRoundBox(coord - wormData[3].xy, boxSize, cornerRadius);
-				float dist5 = udRoundBox(coord - wormData2[0].xy, boxSize, cornerRadius);
-				float dist6 = udRoundBox(coord - wormData2[1].xy, boxSize, cornerRadius);
+			float wormDist(vec2 uv, vec2 boxSize, float cornerRadius) {
+				float dist1 = udRoundBox(uv - wormData[0].xy, boxSize, cornerRadius);
+				float dist2 = udRoundBox(uv - wormData[1].xy, boxSize, cornerRadius);
+				float dist3 = udRoundBox(uv - wormData[2].xy, boxSize, cornerRadius);
+				float dist4 = udRoundBox(uv - wormData[3].xy, boxSize, cornerRadius);
+				float dist5 = udRoundBox(uv - wormData2[0].xy, boxSize, cornerRadius);
+				float dist6 = udRoundBox(uv - wormData2[1].xy, boxSize, cornerRadius);
 
-				float radius = 80.;
+				float r = 0.078;
 
-				float wormDataUnion = fOpUnionSoft(fOpUnionSoft(fOpUnionSoft(dist1, dist2, radius), dist3, radius), dist4, radius);
-				float wormData2Union = fOpUnionSoft(dist5, dist6, radius);
+				float wormDataUnion = fOpUnionSoft(fOpUnionSoft(fOpUnionSoft(dist1, dist2, r), dist3, r), dist4, r);
+				float wormData2Union = fOpUnionSoft(dist5, dist6, r);
 
-				return fOpUnionSoft(wormDataUnion, wormData2Union, radius);
+				return fOpUnionSoft(wormDataUnion, wormData2Union, r);
 			}
 
-			vec4 getWormBlockColor(vec2 coord, vec2 uv, vec2 bgUV) {
-				float sideLength = 30.;
-				float cornerRadius = 15.;
-				float dist = wormDist(coord, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
+			vec4 getWormBlockColor(vec2 uv, vec2 movingUV, vec2 bgUV) {
+				float sideLength = 0.028;
+				float cornerRadius = 0.014;
+				float dist = wormDist(uv, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
 
 				if (dist < 0.3) {
-					float borderMod = smoothstep(0.15, 0.3, dist) / 3.;
-					float brighten = -dist / 2. + borderMod;			
+					float borderMod = smoothstep(0.15, 0.3, dist) / 2.5;
+					float brighten = -dist / 1.85 + borderMod;
 
 					float r = brighten;
 					float g = (sin(time) + 1.) / 2. * 0.2 + brighten;
@@ -343,14 +350,14 @@ class GameStateTransformer extends StateTransformer {
 
 					float c = coolWormNoise(bgUV);
 
-					return vec4(r + c, g, b, 1.0);	
+					return vec4(r + c, g, b, 1. - smoothstep(0.15, 0.3, dist));
 				} else {
 					return vec4(0);
 				}
 			}
 
-			vec4 getWormColor(vec2 coord, vec2 uv, vec2 bgUV) {
-				vec4 color = getWormBlockColor(coord, uv, bgUV);
+			vec4 getWormColor(vec2 uv, vec2 movingUV, vec2 bgUV) {
+				vec4 color = getWormBlockColor(uv, movingUV, bgUV);
 
 				if (length(color) > 0.) {
 					return color;
@@ -371,34 +378,39 @@ class GameStateTransformer extends StateTransformer {
 				return f;
 			}
 
-			void main(void) {
-				vec2 bgCoord = (gl_FragCoord.xy + (cameraPos.xy * 0.5 - (resolution.xy / 2.)));
-				vec2 bgP = bgCoord / resolution.xy;
-				vec2 bgUV = bgP * vec2(resolution.x/resolution.y,1.0);
+			vec4 getCaveWallColor(float dist, vec2 movingUV) {
+				float glow = (1. - smoothstep(0., .05, dist)) * 0.8;
+				float noise = 0.; //fractalNoise(movingUV) * 2.;
+				return vec4(glow + noise, 0.2 - (glow * 0.1), 0.45 - (glow * 0.22), 1.0);
+			}
 
-				vec2 coord = gl_FragCoord.xy + (cameraPos.xy - (resolution.xy / 2.));
-				vec2 p = coord / resolution.xy;
+			void main(void) {
+				// Moves at a different rate for parallax effect
+				vec2 bgP = gl_FragCoord.xy / resolution.xy;
+				vec2 bgUV = bgP * vec2(resolution.x/resolution.y,1.0) - cameraPos.xy * 0.25;
+
+				vec2 coord = gl_FragCoord.xy;
+				vec2 p = coord / resolution.xy - cameraPos.xy + 0.5;
 				vec2 movingUV = p * vec2(resolution.x/resolution.y,1.0);
 
 				vec2 screenP = gl_FragCoord.xy / resolution.xy;
 				vec2 uv = screenP * vec2(resolution.x/resolution.y,1.0);
 
-				vec4 wormColor = getWormColor(coord, movingUV, bgUV);
+				vec4 wormColor = getWormColor(uv, movingUV, bgUV);
 
 				if (length(wormColor) > 0.) {
 					gl_FragColor = wormColor;
 				}
 				else {
 					float height = texture2D(caveHeights, vec2(uv.x / 2., 0.)).a;
-					float dist = coord.y - height;
+					float dist = uv.y - height;
 
-					if (coord.y > height || coord.y < height - 800.) {
-						if (coord.y < height - 800.) {
-							dist = height - 800. - coord.y;
+					if (uv.y > height || uv.y < height - caveAperture) {
+						if (uv.y < height - caveAperture) {
+							dist = height - caveAperture - uv.y;
 						}
 
-						float glow = (1. - smoothstep(0., 50., dist)) * 0.8;
-						gl_FragColor = vec4(glow, 0.2 - (glow * 0.1), 0.45 - (glow * 0.22), 1.0);
+						gl_FragColor = getCaveWallColor(dist, movingUV);
 					} else {
 						gl_FragColor = bgColor(bgUV);
 					}					
@@ -412,7 +424,7 @@ class GameStateTransformer extends StateTransformer {
 
 	getInitialPlayerPosition() {
 		return Util.toMetersV(new vec2(AppState.canvasWidth * 0.1,
-												AppState.canvasHeight / 4));
+												AppState.canvasHeight / 2));
 	}
 
 	getCaveDataTexture() {
