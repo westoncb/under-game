@@ -403,15 +403,15 @@ class GameStateTransformer extends StateTransformer {
 
 
 			vec4 getCaveWallColor(float dist, vec2 uv) {
-				float glow = (1. - smoothstep(0., .06, dist)) * 0.8;
-				float noise1 = fractalNoise(uv + vec2(cameraPos.x / 1.8, cameraPos.y)) * 3.5;
-				float steppedNoise = noise1 * (1. - smoothstep(0., .05, dist));
+				float glow = (1. - smoothstep(0., .04, dist)) * 0.8;
+				float noise1 = fractalNoise(uv + vec2(cameraPos.x / (resolution.x/resolution.y) * 1.05, cameraPos.y)) * 3.5;
+				float steppedNoise = noise1 * (1. - smoothstep(0., .04, dist));
 				float modDist = dist + noise1;
-				float noise2 = noise(vec2(0., pModInterval1(modDist, 0.05, 0., 100.)));
+				float noise2 = noise(vec2(0., pModInterval1(modDist, 0.05, 0., 7.)));
 
-				float r = 0.2 - (glow * 0.2) + noise2;
-				float g = 0.2 - (glow * 0.2) + noise2;
-				float b = (glow + steppedNoise) / 3. + (0.25) + noise2 * (sin(time) + 2.) / 10.;
+				float r = 0.2 - (glow * 0.2) + noise2 * 0.5;
+				float g = 0.2 - (glow * 0.2) + noise2 * 0.5;
+				float b = (glow + steppedNoise) / 3. + (0.25) + noise2 * (sin(time) + 2.) / 10. + 0.05;
 
 				return vec4(r, g, b, 1.0);
 			}
