@@ -16,7 +16,9 @@ class CaveGenerator {
 	}
 
 	noise(x) {
-		return Util.noise1d(x / 3) ** 2 * 4;
+		return Util.noise1d(x / 3) ** 2 * 4
+		       + Util.noise1d(x * 2.) / 2.5
+		       + Util.noise1d(x * 8.) / 7.;
 	}
 
 	getBottomSurfaceY(x) {
