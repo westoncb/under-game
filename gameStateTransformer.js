@@ -304,23 +304,25 @@ class GameStateTransformer extends StateTransformer {
 			  	return length(max(abs(p)-b, 0.0))-r;
 			}
 
-			vec4 bgColor(vec2 uv) {
-				float theNoise = noise(((uv + cameraPos * 0.25) * 25.));
-				float noise = (theNoise * theNoise) / 2. / 2.5;
-				return vec4(0., noise * 1.1, noise * 2., 1.0);	
+			float coolWormNoise(vec2 uv) {
+				// vec2 uv1 = vec2(uv.x + 1., uv.y);
+				float noise1 = noise((uv * 10.));
+				// vec2 uv2 = vec2(uv.x - 1., uv.y);
+				// float noise2 = noise((uv2 * 10.));
+				// vec2 uv3 = vec2(uv.x, uv.y + 1.);
+				// float noise3 = noise((uv3 * 10.));
+				// vec2 uv4 = vec2(uv.x, uv.y - 1.);
+				// float noise4 = noise((uv4 * 10.));
+
+				return noise1 / 2.;
 			}
 
-			float coolWormNoise(vec2 uv) {
-				vec2 uv1 = vec2(uv.x + 1., uv.y);
-				float noise1 = noise((uv1 * 10.));
-				vec2 uv2 = vec2(uv.x - 1., uv.y);
-				float noise2 = noise((uv2 * 10.));
-				vec2 uv3 = vec2(uv.x, uv.y + 1.);
-				float noise3 = noise((uv3 * 10.));
-				vec2 uv4 = vec2(uv.x, uv.y - 1.);
-				float noise4 = noise((uv4 * 10.));
-
-				return (noise1 + noise2 + noise3 + noise4) / 4.;
+			vec4 bgColor(vec2 uv) {
+				// float theNoise = noise(((uv + cameraPos * 0.25) * 25.));
+				// float noise = (theNoise * theNoise) / 2. / 2.5;
+				float noise2 = coolWormNoise((uv + cameraPos * 0.25) * .5)*coolWormNoise((uv + cameraPos * 0.25) * 5.) * 2.5;
+				// noise += noise2;
+				return vec4(noise2 / 4., noise2 / 2., noise2 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05, 1.0);	
 			}
 
 			float wormDist(vec2 uv, vec2 boxSize, float cornerRadius) {
@@ -345,16 +347,16 @@ class GameStateTransformer extends StateTransformer {
 				float dist = wormDist(uv, vec2(sideLength, sideLength), cornerRadius) / (sideLength + cornerRadius);
 
 				if (dist < 0.3) {
-					float borderMod = smoothstep(0.15, 0.3, dist) / 2.5;
-					float brighten = -dist / 2. + borderMod;
+					float borderMod = smoothstep(0.1, 0.3, dist) / 4.5;
+					float brighten = abs(-dist / 1.5);
 
 					float r = brighten;
-					float g = (sin(time) + 1.) / 2. * 0.2 + brighten;
-					float b = (cos(time) + 1.) / 2. * 0.2 + brighten;
+					float g = brighten;
+					float b = (cos(time) + 1.) * 0.2 + brighten*2. + borderMod * 3.;
 
-					float c = coolWormNoise(uv + cameraPos.xy);
+					float c = coolWormNoise(uv + cameraPos * 0.25);
 
-					return vec4(r + c, g, b, 1. - smoothstep(0.15, 0.3, dist));
+					return vec4(r, g + c * 0.4, b + c*0.8, 1.);
 				} else {
 					return vec4(0);
 				}
@@ -382,10 +384,36 @@ class GameStateTransformer extends StateTransformer {
 				return f;
 			}
 
+			//From http://mercury.sexy/hg_sdf/
+			//Repeat only a few times: from indices <start> to <stop> (similar to above, but more flexible)
+			float pModInterval1(inout float p, float size, float start, float stop) {
+			  float halfsize = size*0.5;
+			  float c = floor((p + halfsize)/size);
+			  p = mod(p+halfsize, size) - halfsize;
+			  if (c > stop) { //yes, this might not be the best thing numerically.
+			    p += size*(c - stop);
+			    c = stop;
+			  }
+			  if (c < start) {
+			    p += size*(c - start);
+			    c = start;
+			  }
+			  return c;
+			}
+
+
 			vec4 getCaveWallColor(float dist, vec2 uv) {
-				float glow = (1. - smoothstep(0., .05, dist)) * 0.8;
-				float noise = fractalNoise(uv + cameraPos) * 2.;
-				return vec4(glow + noise, 0.2 - (glow * 0.1), 0.45 - (glow * 0.22), 1.0);
+				float glow = (1. - smoothstep(0., .06, dist)) * 0.8;
+				float noise1 = fractalNoise(uv + vec2(cameraPos.x / 1.8, cameraPos.y)) * 3.5;
+				float steppedNoise = noise1 * (1. - smoothstep(0., .05, dist));
+				float modDist = dist + noise1;
+				float noise2 = noise(vec2(0., pModInterval1(modDist, 0.05, 0., 100.)));
+
+				float r = 0.2 - (glow * 0.2) + noise2;
+				float g = 0.2 - (glow * 0.2) + noise2;
+				float b = (glow + steppedNoise) / 3. + (0.25) + noise2 * (sin(time) + 2.) / 10.;
+
+				return vec4(r, g, b, 1.0);
 			}
 
 			void main(void) {
@@ -398,7 +426,7 @@ class GameStateTransformer extends StateTransformer {
 					gl_FragColor = wormColor;
 				}
 				else {
-					float height = texture2D(caveHeights, vec2(uv.x / 2., 0.)).a;
+					float height = texture2D(caveHeights, vec2(p.x, 0.)).a;
 					float dist = uv.y - height;
 
 					bool bottomCaveWall = uv.y < height - caveAperture;
@@ -407,7 +435,7 @@ class GameStateTransformer extends StateTransformer {
 							dist = height - caveAperture - uv.y;
 						}
 
-						gl_FragColor = getCaveWallColor(dist, uv);
+						gl_FragColor = getCaveWallColor(dist, p);
 					} else {
 						gl_FragColor = bgColor(uv);
 					}
