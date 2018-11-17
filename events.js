@@ -1,23 +1,23 @@
-class EventQueue {
+class Events {
 	static enqueue(name, data) {
-		EventQueue.queue.push({name, data});
+		Events.queue.push({name, data});
 	}
 
 	static addTimedEvent(name, data, duration) {
-		EventQueue.timedEvents[name] = {name, data, duration, startTime: EventQueue.lastTime, completion: 0};	
-		EventQueue.enqueue(name + "_started", data);
+		Events.timedEvents[name] = {name, data, duration, startTime: Events.lastTime, completion: 0};	
+		Events.enqueue(name + "_started", data);
 	}
 
 	static dequeue() {
-		return EventQueue.queue.shift();
+		return Events.queue.shift();
 	}
 
 	static empty() {
-		return EventQueue.queue.length === 0;
+		return Events.queue.length === 0;
 	}
 
-	static timedEventCompletion(name) {
-		const event = EventQueue.timedEvents[name];
+	static eventCompletion(name) {
+		const event = Events.timedEvents[name];
 
 		if (event) {
 			return event.completion;
@@ -26,8 +26,12 @@ class EventQueue {
 		}
 	}
 
+	static isEventRunning(name) {
+		return Events.eventCompletion(name) > -1;
+	}
+
 	static update(time) {
-		const timedEvents = EventQueue.timedEvents;
+		const timedEvents = Events.timedEvents;
 
 		Object.keys(timedEvents).forEach(eventName => {
 			const event = timedEvents[eventName];
@@ -36,15 +40,15 @@ class EventQueue {
 
 			if (event.completion >= 1) {
 				delete timedEvents[eventName]
-				EventQueue.enqueue(event.name + "_finished", event.data);
+				Events.enqueue(event.name + "_finished", event.data);
 			}
 		});
 
 		lastTime = time;
 	}
 }
-EventQueue.queue = []
-EventQueue.timedEvents = {};
-EventQueue.lastTime = 0;
+Events.queue = []
+Events.timedEvents = {};
+Events.lastTime = 0;
 
-module.exports = EventQueue;
+module.exports = Events;
