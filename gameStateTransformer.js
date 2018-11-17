@@ -33,6 +33,18 @@ class GameStateTransformer extends StateTransformer {
 			yHistoryIndex: 0,
 		};
 
+		this.contingentEvolvers = [
+			{condition: (state) => Events.isEventRunning('wormDeath'),
+		     evolve: (state, deltaTime) => {
+		   		const player = state.player;
+	   			player.position.lerpVectors(
+		   			player.deathPosition,
+		   			player.deathTargetPosition,
+		   			Events.eventCompletion('wormDeath')
+		   		);
+		    }}
+		];
+
 		const uniforms = {playerPos: {value: this.state.player.position},
 						  cameraPos: {value: this.state.camera.position},
 						  wormData: {value: new Float32Array(16)},
@@ -70,6 +82,8 @@ class GameStateTransformer extends StateTransformer {
 			this.updateCaveGeometry();
 
 			this.updateWorm();
+
+			this.timeEvolveState(deltaTime);
 
 			// Convert to seconds
 			this.state.time = time / 1000;
@@ -162,6 +176,14 @@ class GameStateTransformer extends StateTransformer {
 		}
 
 		this.caveHeightTex.needsUpdate = true;
+	}
+
+	timeEvolveState(deltaTime) {
+		const state = this.state;
+
+		this.contingentEvolvers.
+			find(evolver => evolver.condition(state)).
+			forEach(evolver => evolver.evolve(state, deltaTime));
 	}
 
 	mapStateToUniforms(state) {
