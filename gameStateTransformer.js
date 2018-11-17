@@ -20,8 +20,6 @@ class GameStateTransformer extends StateTransformer {
 					 rotation: 0,
 					 mass: 10,
 					 activeForces: [],
-					 dying: false,
-					 dead: false,
 					 velocityCap: new vec2(6, 10),
 					}, 
 			camera: {position: new vec2(),
@@ -65,9 +63,9 @@ class GameStateTransformer extends StateTransformer {
 		if (this.focused) {
 			this.assignEnvironmentalForces();
 
-			this.findCollisions().forEach(collisionEvent => EventQueue.push(collisionEvent));
-
 			this.updateKinematics(deltaTime);
+
+			this.findCollisions().forEach(collisionEvent => EventQueue.enqueue(collisionEvent));
 
 			this.updateCaveGeometry();
 

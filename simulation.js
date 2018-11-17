@@ -10,7 +10,7 @@ class Simulation extends StateTransformer {
 
 	update(time, deltaTime) {
 		while(!EventQueue.empty()) {
-			this.handleEvent(EventQueue.pop());
+			this.handleEvent(EventQueue.dequeue());
 		}
 
 		this.subTransformer.update(time, deltaTime);
@@ -18,7 +18,7 @@ class Simulation extends StateTransformer {
 
 	handleEvent(event) {
 		if (event.name === 'change_transformer') {
-			this.swapSubTransformer(event.transformer);
+			this.swapSubTransformer(event.data.transformer);
 		} else {
 			this.subTransformer.handleEvent(event);
 		}

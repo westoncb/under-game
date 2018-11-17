@@ -6,7 +6,7 @@ const GameStateTransformer = require('./gameStateTransformer.js');
 window.onload = () => {
 	const simulation = new Simulation();
 
-	EventQueue.push({name: 'change_transformer', transformer: new GameStateTransformer()});
+	EventQueue.enqueue('change_transformer', {transformer: new GameStateTransformer()});
 
 	const clock = new THREE.Clock();
 
