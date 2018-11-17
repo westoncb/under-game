@@ -1,5 +1,5 @@
 const StateTransformer = require('./StateTransformer.js');
-const EventQueue = require('./eventQueue.js');
+const Events = require('./events.js');
 
 class Simulation extends StateTransformer {
 	constructor() {
@@ -9,8 +9,8 @@ class Simulation extends StateTransformer {
 	}
 
 	update(time, deltaTime) {
-		while(!EventQueue.empty()) {
-			this.handleEvent(EventQueue.dequeue());
+		while(!Events.empty()) {
+			this.handleEvent(Events.dequeue());
 		}
 
 		this.subTransformer.update(time, deltaTime);

@@ -65,7 +65,7 @@ class GameStateTransformer extends StateTransformer {
 
 			this.updateKinematics(deltaTime);
 
-			this.findCollisions().forEach(collisionEvent => EventQueue.enqueue(collisionEvent));
+			this.findCollisions().forEach(collisionEvent => Events.enqueue(collisionEvent));
 
 			this.updateCaveGeometry();
 
