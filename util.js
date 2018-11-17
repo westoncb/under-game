@@ -119,7 +119,37 @@ class Util {
   static smoothstep (min, max, value) {
     const x = Math.max(0, Math.min(1, (value-min)/(max-min)));
     return x*x*(3 - 2*x);
-  };
+  }
+
+  static objSpreadInto(obj, target) {
+    Object.keys(obj).forEach(key => {
+      target[key] = obj[key];
+    });
+  }
+
+  static getPropAtPath(obj, path) {
+    const pathParts = path.split('.');
+    let prop = obj;
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      prop = prop[pathParts[i]];
+    }
+
+    return prop;
+  }
+
+  static setPropAtPath(obj, path, value) {
+    const pathParts = path.split('.');
+    let prop = obj;
+    
+    for (let i = 0; i < pathParts.length; i++) {
+      if (i === pathParts.length-1) {
+        prop[pathParts[i]] = value;
+      } else {
+        prop = prop[pathParts[i]];
+      }
+    }
+  }
 }
 
 module.exports = Util;
