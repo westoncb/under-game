@@ -74,7 +74,7 @@ class GameStateTransformer extends StateTransformer {
 	handleEvent(event) {
 		if (event.name === 'worm_cave_collision') {
 			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 5));
-			this.evolveAid.runTransientState('player.dying', this.state,
+			this.evolveAid.runTransientState('player.dying',
 								   {position: event.data.wormPosition, targetPosition}, 
 								   5);
 		}

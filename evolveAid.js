@@ -3,6 +3,8 @@ const Events = require('./events.js');
 
 class EvolveAid {
 	constructor(state, contingentEvolvers = []) {
+		this.state = state;
+		this.contingentEvolvers = contingentEvolvers;
 		this.transientStatePaths = [];
 		this.lastTime = 0;
 	}
@@ -40,7 +42,7 @@ class EvolveAid {
 
 	runTransientState(propertyPath, subState, duration) {
 		const state = this.state;
-		
+
 		const transState = {startTime: this.lastTime, duration, completion: 0, transient: true};
 		Util.objSpreadInto(subState, transState);
 		Util.setPropAtPath(state, propertyPath, transState);
