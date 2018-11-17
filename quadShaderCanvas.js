@@ -42,7 +42,8 @@ class QuadShaderCanvas {
 
 	initScene(fragmentShader) {
 		const uniforms = {time: { value: 1.0 },
-					      resolution: { value: new THREE.Vector2(this.width, this.height)}};
+					      resolution: { value: new THREE.Vector2(this.width, this.height)},
+					  	  aspectRatio: {value: this.width/this.height}};
 		Object.keys(this.customUniforms).forEach(uniformKey => {
 			uniforms[uniformKey] = this.customUniforms[uniformKey];
 		});
@@ -92,6 +93,8 @@ class QuadShaderCanvas {
 
 	    this.uniforms.resolution.value.x = AppState.canvasWidth;
 	    this.uniforms.resolution.value.y = AppState.canvasHeight;
+
+	    this.uniforms.aspectRatio.value = this.width / this.height;
 	}
 }
 
