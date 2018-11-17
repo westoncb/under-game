@@ -14,7 +14,7 @@ window.onload = () => {
 		static update(time) {
 			requestAnimationFrame( MainLoop.update );
 
-			simulation.update(time, clock.getDelta());
+			simulation.update(time / 1000, clock.getDelta());
 			simulation.render();
 
 		}
