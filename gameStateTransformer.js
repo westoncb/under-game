@@ -3,6 +3,8 @@ const StateTransformer = require('./StateTransformer.js');
 const CaveGenerator = require('./caveGenerator.js');
 const AppState = require('./appState.js');
 const Util = require('./util.js');
+const Events = require('./events.js');
+const EvolveAid = require('./evolveAid.js');
 
 const THREE = require('three');
 const vec2 = THREE.Vector2;
@@ -21,6 +23,7 @@ class GameStateTransformer extends StateTransformer {
 					 mass: 10,
 					 activeForces: [],
 					 velocityCap: new vec2(6, 10),
+					 collisionBounds: {width: 0.5, height: 0.5},
 					}, 
 			camera: {position: new vec2(),
 					 velocity: new vec2(),
@@ -34,16 +37,18 @@ class GameStateTransformer extends StateTransformer {
 		};
 
 		this.contingentEvolvers = [
-			{condition: (state) => Events.isEventRunning('wormDeath'),
+			{condition: (state) => state.player.dying,
 		     evolve: (state, deltaTime) => {
 		   		const player = state.player;
 	   			player.position.lerpVectors(
-		   			player.deathPosition,
-		   			player.deathTargetPosition,
-		   			Events.eventCompletion('wormDeath')
+		   			player.dying.position,
+		   			player.dying.targetPosition,
+		   			player.dying.completion
 		   		);
 		    }}
 		];
+
+		this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
 
 		const uniforms = {playerPos: {value: this.state.player.position},
 						  cameraPos: {value: this.state.camera.position},
@@ -66,34 +71,42 @@ class GameStateTransformer extends StateTransformer {
 		this.caveGenerator = new CaveGenerator();
 	}
 
-	handleEvent(event) {}
+	handleEvent(event) {
+		if (event.name === 'worm_cave_collision') {
+			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 5));
+			this.evolveAid.runTransientState('player.dying', this.state,
+								   {position: event.data.wormPosition, targetPosition}, 
+								   5);
+		}
+	}
 
 	update(time, deltaTime) {
-		// generate coins routine
-		// general cleanup routine
+		super.update(time, deltaTime);
 
 		if (this.focused) {
 			this.assignEnvironmentalForces();
 
 			this.updateKinematics(deltaTime);
 
-			this.findCollisions().forEach(collisionEvent => Events.enqueue(collisionEvent));
+			this.emitCollisionEvents();
 
 			this.updateCaveGeometry();
 
 			this.updateWorm();
 
-			this.timeEvolveState(deltaTime);
+			this.evolveAid.update(time, deltaTime, this.state, this.contingentEvolvers);
 
-			// Convert to seconds
-			this.state.time = time / 1000;
+			this.state.time = time;
 
 			this.mapStateToUniforms(this.state);
 		}
 	}
 
 	updateKinematics(deltaTime) {
-		const entities = [this.state.player, this.state.camera];
+		const entities = [this.state.camera];
+
+		if (!this.state.player.dying)
+			entities.push(this.state.player);
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
@@ -178,14 +191,6 @@ class GameStateTransformer extends StateTransformer {
 		this.caveHeightTex.needsUpdate = true;
 	}
 
-	timeEvolveState(deltaTime) {
-		const state = this.state;
-
-		this.contingentEvolvers.
-			find(evolver => evolver.condition(state)).
-			forEach(evolver => evolver.evolve(state, deltaTime));
-	}
-
 	mapStateToUniforms(state) {
 		const uniforms = this.quadShaderCanvas.uniforms;
 
@@ -251,8 +256,36 @@ class GameStateTransformer extends StateTransformer {
 		}
 	}
 
-	findCollisions() {
-		return [];
+	emitCollisionEvents() {
+		this.emitWormCaveCollision();
+	}
+
+	emitWormCaveCollision() {
+		const state = this.state;
+		const worm = state.player;
+
+		if (worm.dying) {
+			return;
+		}
+
+		const bounds = worm.collisionBounds;
+		const wormTopY = worm.position.y + bounds.height / 2;
+		const startX = worm.position.x - bounds.width/2;
+		const finishX = worm.position.x + bounds.width/2;
+		const samples = 5;
+		const increment = (finishX - startX) / (samples - 1);
+
+		for (let i = 0; i < samples; i++) {
+			const wormSampleX = startX + increment * i;
+			const caveY = this.caveGenerator.getTopSurfaceY(wormSampleX);
+
+			if (wormTopY > caveY) {
+				const collisionPoint = new vec2(wormSampleX, caveY);
+				const wormPosition = worm.position.clone();
+				Events.enqueue('worm_cave_collision', {collisionPoint, wormPosition});
+				return;
+			}
+		}
 	}
 
 	render() {
@@ -263,9 +296,10 @@ class GameStateTransformer extends StateTransformer {
 
 	getFragmentShader() {
 		const fs = `
-			precision highp float;
+			precision mediump float;
 
 			uniform vec2 resolution;
+			uniform float aspectRatio;
 			uniform vec2 playerPos;
 			uniform vec2 cameraPos;
 			uniform float time;
@@ -342,7 +376,7 @@ class GameStateTransformer extends StateTransformer {
 				// float noise = (theNoise * theNoise) / 2. / 2.5;
 				float noise2 = coolWormNoise((uv + cameraPos * 0.25) * .5)*coolWormNoise((uv + cameraPos * 0.25) * 5.) * 2.5;
 				// noise += noise2;
-				return vec4(noise2 / 4., noise2 / 2., noise2 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05, 1.0);	
+				return vec4(noise2, noise2 / 2., noise2 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05, 1.0);	
 			}
 
 			float wormDist(vec2 uv, vec2 boxSize, float cornerRadius) {
@@ -424,10 +458,10 @@ class GameStateTransformer extends StateTransformer {
 
 			vec4 getCaveWallColor(float dist, vec2 uv) {
 				float glow = (1. - smoothstep(0., .04, dist)) * 0.8;
-				float noise1 = fractalNoise(uv + vec2(cameraPos.x / (resolution.x/resolution.y) * 1.05, cameraPos.y)) * 3.5;
+				float noise1 = fractalNoise(uv + vec2(cameraPos.x / aspectRatio * 1.08, cameraPos.y)) * 3.5;
 				float steppedNoise = noise1 * (1. - smoothstep(0., .04, dist));
 				float modDist = dist + noise1;
-				float noise2 = noise(vec2(0., pModInterval1(modDist, 0.05, 0., 7.)));
+				float noise2 = noise(vec2(0., pModInterval1(modDist, 0.05, 0., 13.)));
 
 				float r = 0.2 - (glow * 0.2) + noise2 * 0.5;
 				float g = 0.2 - (glow * 0.2) + noise2 * 0.5;
@@ -438,7 +472,7 @@ class GameStateTransformer extends StateTransformer {
 
 			void main(void) {
 				vec2 p = gl_FragCoord.xy / resolution.xy;
-				vec2 uv = p * vec2(resolution.x/resolution.y,1.0);
+				vec2 uv = p * vec2(aspectRatio,1.0);
 
 				vec4 wormColor = getWormColor(uv);
 
