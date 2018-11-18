@@ -95,31 +95,20 @@ class GameFragmentShader {
 			}
 
 			float coolWormNoise(vec2 uv) {
-				// vec2 uv1 = vec2(uv.x + 1., uv.y);
-				float noise1 = noise((uv * 10.));
-				// vec2 uv2 = vec2(uv.x - 1., uv.y);
-				// float noise2 = noise((uv2 * 10.));
-				// vec2 uv3 = vec2(uv.x, uv.y + 1.);
-				// float noise3 = noise((uv3 * 10.));
-				// vec2 uv4 = vec2(uv.x, uv.y - 1.);
-				// float noise4 = noise((uv4 * 10.));
-
-				return noise1 / 2.;
+				return noise((uv * 10.)) / 2.;
 			}
 
 			vec4 bgColor(vec2 uv) {
-				// float theNoise = noise(((uv + cameraPos * 0.25) * 25.));
-				// float noise = (theNoise * theNoise) / 2. / 2.5;
-				float noise2 = coolWormNoise((uv + cameraPos * 0.25) * .5)*coolWormNoise((uv + cameraPos * 0.25) * 5.) * 2.5;
-				// noise += noise2;
+				float noise1 = coolWormNoise((uv + cameraPos * 0.25) * .5)*coolWormNoise((uv + cameraPos * 0.25) * 5.) * 2.5;
 
-				float deathAnimTime = smoothstep(0., 0.4, wormDeathRatio);
-				float r = noise2 + noise2/3.*deathAnimTime;
-				float g = noise2 / 2.;
-				float b = noise2 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05;
+				float deathAndRebirthAnimRatio = smoothstep(0., 0.4, wormDeathRatio) - resetTransitionRatio;
 
-				g = g + -g * deathAnimTime;
-				b = b + -b * deathAnimTime;
+				float r = noise1 + noise1/3. * deathAndRebirthAnimRatio;
+				float g = noise1 / 2.;
+				float b = noise1 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05;
+
+				g = g + -g * deathAndRebirthAnimRatio;
+				b = b + -b * deathAndRebirthAnimRatio;
 
 				return vec4(r, g, b, 1.0);	
 			}
@@ -179,17 +168,19 @@ class GameFragmentShader {
 
 				float glow = (1. - smoothstep(0., .04, negDist)) * 0.8;
 
-				// Fade out glow during death
-				glow += -glow * wormDeathRatio;
+				float deathAndRebirthAnimRatio = (wormDeathRatio - smoothstep(.5, 1., resetTransitionRatio));
 
-				float resetScrollBack = resetTransitionRatio * cameraPos.x;
+				// Fade out glow during death
+				glow += -glow * deathAndRebirthAnimRatio;
+
+				float resetScrollBack = smoothstep(0., 0.5, resetTransitionRatio) * cameraPos.x;
 				float noise1 = fractalNoise(p + vec2(cameraPos.x / aspectRatio * 1.08 - resetScrollBack, cameraPos.y)) * 3.5;
 				float steppedNoise = noise1 * (1. - smoothstep(0., .04, negDist));
 
 				// Fade out noise glow during death
-				steppedNoise += - steppedNoise * wormDeathRatio;
+				steppedNoise += -steppedNoise * deathAndRebirthAnimRatio;
 
-				float deathAnimScale = (1. - wormDeathRatio / 2.5);
+				float deathAnimScale = (1. - deathAndRebirthAnimRatio / 2.5);
 				float distWithNoise = negDist + noise1 * deathAnimScale;
 				float noise2 = noise(vec2(0., pModInterval1(distWithNoise, 0.05, 0., 13.)));
 
@@ -203,9 +194,10 @@ class GameFragmentShader {
 
 			float caveDistance(vec2 uv, vec2 p) {
 				float height = texture2D(caveHeights, vec2(p.x, 0.)).a;
-				float wormDeathMod = smoothstep(0., 0.4, pow(wormDeathRatio, 2.));
+				float deathRatio = smoothstep(0., 0.4, pow(wormDeathRatio, 4.));
+				float deathAndRebirthAnimRatio = deathRatio - smoothstep(.5, 1., resetTransitionRatio);
 				
-				float caveShutDistance = (wormDeathMod * caveAperture/2.);
+				float caveShutDistance = deathAndRebirthAnimRatio * caveAperture/2.;
 				float topDist = height - caveShutDistance - uv.y;
 				float bottomDist = uv.y - (height - caveAperture + caveShutDistance);
 				
