@@ -37,25 +37,20 @@ class GameStateTransformer extends StateTransformer {
 			yHistoryIndex: 0,
 		};
 
-		this.contingentEvolvers = [
-			{condition: (state) => state.worm.dying,
-		     evolve: (state, deltaTime) => {
-		   		const worm = state.worm;
-	   			worm.position.lerpVectors(
-		   			worm.dying.position,
-		   			worm.dying.targetPosition,
-		   			worm.dying.completion
-		   		);
-		    }}
-		];
+        // Takes objects with two properties: condition and evolve, both of which
+        // should be functions. 'condition' is passed the current state and returns
+        // a boolean indicataing whether 'evolve' should be executed each frame.
+        // 'evolve' is passed the current state and deltaTime.
+		this.contingentEvolvers = [];
 
 		this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
 
-		const uniforms = {wormPos: {value: this.state.worm.position},
-						  cameraPos: {value: this.state.camera.position},
+		const uniforms = {cameraPos: {value: this.state.camera.position},
 						  wormData: {value: new Float32Array(16)},
 						  wormData2: {value: new Float32Array(16)},
-						  caveAperture: {value: 0.75}
+						  caveAperture: {value: 0.75},
+                          wormDeathRatio: {value: 0},
+                          resetTransitionRatio: {value: 0},
 						 }
 
 		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText(), uniforms);
@@ -74,11 +69,13 @@ class GameStateTransformer extends StateTransformer {
 
 	handleEvent(event) {
 		if (event.name === 'worm_cave_collision') {
-			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 5));
+			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 10));
 			this.evolveAid.runTransientState('worm.dying',
 						   {position: event.data.wormPosition, targetPosition}, 
-						   5);
-		}
+						   1.5);
+		} else if (event.name === 'worm.dying_finished') {
+            this.evolveAid.runTransientState('resetTransition', {}, 1.5);
+        }
 	}
 
 	update(time, deltaTime) {
@@ -104,16 +101,15 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	updateKinematics(deltaTime) {
-		const entities = [this.state.camera];
-
-		if (!this.state.worm.dying)
-			entities.push(this.state.worm);
+		const entities = [this.state.camera, this.state.worm];
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
-				const target = this.state.worm.position.clone().add(new vec2(5, 0));
-				entity.position.addScaledVector(target.sub(this.state.camera.position), 
-												1 / 10);
+				if (!this.state.worm.dying) {
+                    const target = this.state.worm.position.clone().add(new vec2(5, 0));
+                    entity.position.addScaledVector(target.sub(this.state.camera.position), 
+                                                    1 / 10);
+                }
 			} else {
 				const totalForce = new vec2();
 				entity.activeForces.forEach(force => {
@@ -203,17 +199,21 @@ class GameStateTransformer extends StateTransformer {
 		cameraPos.y /= AppState.canvasHeight;
 
 		uniforms.time.value = state.time;
-		uniforms.wormPos.value = wormPos;
 		uniforms.cameraPos.value = cameraPos;
+        if (state.worm.dying)
+            uniforms.wormDeathRatio.value = state.worm.dying.completion;
+        if (state.resetTransition)
+            uniforms.resetTransitionRatio.value = state.resetTransition.completion;
 
 		// Update trailing worm block positions
 		// and copy into matrix uniforms
 		for (let i = 0; i < 6; i++) {
+            const rotation = state.worm.velocity.clone().normalize().angle();
+
 			const wormPosClone = state.worm.position.clone();
-			wormPosClone.x += -WORM_BLOCK_SPACING * i;
-			wormPosClone.y = this.getPastWormY(wormPosClone.x);
-			const rotation = state.worm.velocity.clone().normalize().angle();
-			this.setWormPartData(this.cameraTransform(wormPosClone), rotation, i);
+            wormPosClone.x += -WORM_BLOCK_SPACING * i;
+            wormPosClone.y = this.getPastWormY(wormPosClone.x);                
+            this.setWormPartData(this.cameraTransform(wormPosClone), rotation, i);
 		}
 	}
 
