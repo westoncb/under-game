@@ -18,7 +18,7 @@ class GameStateTransformer extends StateTransformer {
 	setUp() {
 		this.state = {
 			time: 0,
-			player: {position: new vec2(),
+			worm: {position: new vec2(),
 					 velocity: new vec2(),
 					 rotation: 0,
 					 mass: 10,
@@ -33,25 +33,25 @@ class GameStateTransformer extends StateTransformer {
 					 velocityCap: new vec2(10, 30),
 					},
 			keyStates: {},
-			playerYHistory: [],
+			wormYHistory: [],
 			yHistoryIndex: 0,
 		};
 
 		this.contingentEvolvers = [
-			{condition: (state) => state.player.dying,
+			{condition: (state) => state.worm.dying,
 		     evolve: (state, deltaTime) => {
-		   		const player = state.player;
-	   			player.position.lerpVectors(
-		   			player.dying.position,
-		   			player.dying.targetPosition,
-		   			player.dying.completion
+		   		const worm = state.worm;
+	   			worm.position.lerpVectors(
+		   			worm.dying.position,
+		   			worm.dying.targetPosition,
+		   			worm.dying.completion
 		   		);
 		    }}
 		];
 
 		this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
 
-		const uniforms = {playerPos: {value: this.state.player.position},
+		const uniforms = {wormPos: {value: this.state.worm.position},
 						  cameraPos: {value: this.state.camera.position},
 						  wormData: {value: new Float32Array(16)},
 						  wormData2: {value: new Float32Array(16)},
@@ -63,7 +63,7 @@ class GameStateTransformer extends StateTransformer {
 		this.caveHeightTex = this.getCaveDataTexture();
 		this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
 
-		this.state.player.position = this.getInitialPlayerPosition();
+		this.state.worm.position = this.getInitialWormPosition();
 		this.state.camera.position = Util.toMetersV(new vec2(AppState.canvasWidth/2,
 															 AppState.canvasHeight/2));
 
@@ -75,7 +75,7 @@ class GameStateTransformer extends StateTransformer {
 	handleEvent(event) {
 		if (event.name === 'worm_cave_collision') {
 			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 5));
-			this.evolveAid.runTransientState('player.dying',
+			this.evolveAid.runTransientState('worm.dying',
 						   {position: event.data.wormPosition, targetPosition}, 
 						   5);
 		}
@@ -106,12 +106,12 @@ class GameStateTransformer extends StateTransformer {
 	updateKinematics(deltaTime) {
 		const entities = [this.state.camera];
 
-		if (!this.state.player.dying)
-			entities.push(this.state.player);
+		if (!this.state.worm.dying)
+			entities.push(this.state.worm);
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
-				const target = this.state.player.position.clone().add(new vec2(5, 0));
+				const target = this.state.worm.position.clone().add(new vec2(5, 0));
 				entity.position.addScaledVector(target.sub(this.state.camera.position), 
 												1 / 10);
 			} else {
@@ -137,46 +137,46 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	updateWorm() {
-		this.updatePlayerYHistory(this.state.player.position);
+		this.updateWormYHistory(this.state.worm.position);
 	}
 
-	updatePlayerYHistory(playerPos) {
+	updateWormYHistory(wormPos) {
 		const state = this.state;
-		const newYHistoryIndex = Math.floor(Util.toPixels(playerPos.x)) % Y_HISTORY_LENGTH;
+		const newYHistoryIndex = Math.floor(Util.toPixels(wormPos.x)) % Y_HISTORY_LENGTH;
 
 		if (state.yHistoryIndex > newYHistoryIndex) {
-			for (let i = state.yHistoryIndex; i < state.playerYHistory.length; i++) {
-				state.playerYHistory[i] = playerPos.y;
+			for (let i = state.yHistoryIndex; i < state.wormYHistory.length; i++) {
+				state.wormYHistory[i] = wormPos.y;
 			}
 			for (let i = 0; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPos.y;
+				state.wormYHistory[i] = wormPos.y;
 			}
 		} else {
 			for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
-				state.playerYHistory[i] = playerPos.y;
+				state.wormYHistory[i] = wormPos.y;
 			}
 		}
 		state.yHistoryIndex = newYHistoryIndex;
 	}
 
 	assignEnvironmentalForces() {
-		const player = this.state.player;
+		const worm = this.state.worm;
 		const camera = this.state.camera;
 
 		const gravityConstant = 6.673e-11;
 		const earthMass = 5.98e24;
 		const earthRadius = 6.38e6;
-		const gravityForceMagnitude = (gravityConstant * earthMass * player.mass) / 6.38e6 ** 2;
+		const gravityForceMagnitude = (gravityConstant * earthMass * worm.mass) / 6.38e6 ** 2;
 
 		// Weaken gravity and thrust for the first few seconds
 		const introScale = Util.smoothstep(0, 3, this.state.time);
 
-		player.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
+		worm.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
 
-		player.activeForces.push(new vec2(40, 0));
+		worm.activeForces.push(new vec2(40, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			player.activeForces.push(new vec2(0, 250 * introScale));			
+			worm.activeForces.push(new vec2(0, 250 * introScale));			
 		}
 	}
 
@@ -195,7 +195,7 @@ class GameStateTransformer extends StateTransformer {
 	mapStateToUniforms(state) {
 		const uniforms = this.quadShaderCanvas.uniforms;
 
-		const playerPos = this.cameraTransform(state.player.position);
+		const wormPos = this.cameraTransform(state.worm.position);
 
 		const cameraPos = Util.toPixelsV(state.camera.position);
 		cameraPos.x /= AppState.canvasWidth;
@@ -203,17 +203,17 @@ class GameStateTransformer extends StateTransformer {
 		cameraPos.y /= AppState.canvasHeight;
 
 		uniforms.time.value = state.time;
-		uniforms.playerPos.value = playerPos;
+		uniforms.wormPos.value = wormPos;
 		uniforms.cameraPos.value = cameraPos;
 
 		// Update trailing worm block positions
 		// and copy into matrix uniforms
 		for (let i = 0; i < 6; i++) {
-			const playerPosClone = state.player.position.clone();
-			playerPosClone.x += -WORM_BLOCK_SPACING * i;
-			playerPosClone.y = this.getPastPlayerY(playerPosClone.x);
-			const rotation = state.player.velocity.clone().normalize().angle();
-			this.setWormPartData(this.cameraTransform(playerPosClone), rotation, i);
+			const wormPosClone = state.worm.position.clone();
+			wormPosClone.x += -WORM_BLOCK_SPACING * i;
+			wormPosClone.y = this.getPastWormY(wormPosClone.x);
+			const rotation = state.worm.velocity.clone().normalize().angle();
+			this.setWormPartData(this.cameraTransform(wormPosClone), rotation, i);
 		}
 	}
 
@@ -246,12 +246,12 @@ class GameStateTransformer extends StateTransformer {
 	}	
 
 	// Previous y position of worm head segment in pixels
-	getPastPlayerY(x) {
+	getPastWormY(x) {
 		const i = Math.floor(Util.toPixels(x)) % Y_HISTORY_LENGTH;
-		const y = this.state.playerYHistory[i];
+		const y = this.state.wormYHistory[i];
 
 		if (isNaN(y)) {
-			return this.getInitialPlayerPosition().y;
+			return this.getInitialWormPosition().y;
 		} else {
 			return y;
 		}
@@ -263,7 +263,7 @@ class GameStateTransformer extends StateTransformer {
 
 	emitWormCaveCollision() {
 		const state = this.state;
-		const worm = state.player;
+		const worm = state.worm;
 
 		if (worm.dying) {
 			return;
@@ -295,9 +295,9 @@ class GameStateTransformer extends StateTransformer {
 		}
 	}
 
-	getInitialPlayerPosition() {
+	getInitialWormPosition() {
 		return Util.toMetersV(new vec2(AppState.canvasWidth * 0.1,
-												AppState.canvasHeight / 2));
+									   AppState.canvasHeight / 2));
 	}
 
 	getCaveDataTexture() {
