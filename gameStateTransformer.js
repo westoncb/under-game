@@ -185,11 +185,11 @@ class GameStateTransformer extends StateTransformer {
 		const gravityForceMagnitude = (gravityConstant * earthMass * worm.mass) / 6.38e6 ** 2;
 
 		// Weaken gravity and thrust for the first few seconds
-		const introScale = Util.smoothstep(0, 3, this.state.gameTime);
+		const introScale = Util.smoothstep(0, 2.5, this.state.gameTime);
 
 		worm.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
 
-		worm.activeForces.push(new vec2(50, 0));
+		worm.activeForces.push(new vec2(100, 0));
 
 		if (this.state.keyStates.ArrowUp) {
 			worm.activeForces.push(new vec2(0, 1000 * introScale));			
