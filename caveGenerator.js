@@ -6,11 +6,11 @@ const THREE = require('three');
 class CaveGenerator {
 	constructor() {
 		this.junctures = [new THREE.Vector2(-100, 5), new THREE.Vector2(100, 5)]; //(x,y) points each time path slope changes
+		Util.newNoiseSeed();
 	}
 
 	getTopSurfaceY(x) {
 		x = Util.toMeters(x);
-		// const noise = Math.sin(x);
 
 		return this.getBasicTopSurfaceY(x) + this.noise(x);
 	}
@@ -43,7 +43,7 @@ class CaveGenerator {
 	getApertureHeight(x) {
 		// could event just be linear if we wanted to be simple
 
-		return 10;
+		return Util.toMeters(0.75 * AppState.canvasHeight);
 	}
 
 	// These might also need to be functions of x like getApertureHeight(x)
