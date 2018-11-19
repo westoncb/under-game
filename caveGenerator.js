@@ -19,7 +19,7 @@ class CaveGenerator {
 	}
 
 	noise(x) {
-		return (Util.noise1d(x / 3) ** 2 * 4) * Util.mix(0.35, 1, Util.smoothstep(MIN_APERTURE, MAX_APERTURE, this.getApertureHeight(x)))
+		return (Util.noise1d(x / 3) ** 2 * 4) * Util.mix(0.68, 1.3, Util.smoothstep(MIN_APERTURE, MAX_APERTURE, this.getApertureHeight(x)))
 		       + Util.noise1d(x * 2.) / 2.5
 		       + Util.noise1d(x * 8.) / 7.;
 	}
@@ -84,7 +84,7 @@ class CaveGenerator {
 	}
 
 	generateJuncture(lastJuncture, index) {
-		const length = Math.random() * 20 + 5;
+		const length = Math.random() * 15 + 5;
 		const angle = Math.random() * (Math.PI / 2) - (Math.PI / 4);
 		const newJuncture = lastJuncture.clone().add(new THREE.Vector2(Math.cos(angle) * length, Math.sin(angle) * length));
 

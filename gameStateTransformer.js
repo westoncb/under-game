@@ -33,9 +33,9 @@ class GameStateTransformer extends StateTransformer {
             worm: { position: this.getInitialWormPosition(),
                     velocity: new vec2(),
                     rotation: 0,
-                    mass: 10,
+                    mass: 40,
                     activeForces: [],
-                    velocityCap: new vec2(6, 10),
+                    velocityCap: new vec2(6.5, 10),
                     collisionBounds: {width: 0.4, height: 0.4},
                     }, 
             camera: {position: this.getInitialWormPosition(),
@@ -189,10 +189,10 @@ class GameStateTransformer extends StateTransformer {
 
 		worm.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
 
-		worm.activeForces.push(new vec2(40, 0));
+		worm.activeForces.push(new vec2(50, 0));
 
 		if (this.state.keyStates.ArrowUp) {
-			worm.activeForces.push(new vec2(0, 250 * introScale));			
+			worm.activeForces.push(new vec2(0, 1000 * introScale));			
 		}
 	}
 
