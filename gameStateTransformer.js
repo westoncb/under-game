@@ -11,7 +11,7 @@ const THREE = require('three');
 const vec2 = THREE.Vector2;
 
 const Y_HISTORY_LENGTH = 1000;
-const CAVE_SAMPLE_DIST = 8;
+const CAVE_SAMPLE_DIST = 4;
 const WORM_BLOCK_SPACING = 0.8;
 
 class GameStateTransformer extends StateTransformer {
