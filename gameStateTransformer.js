@@ -298,6 +298,7 @@ class GameStateTransformer extends StateTransformer {
 
 		const bounds = worm.collisionBounds;
 		const wormTopY = worm.position.y + bounds.height / 2;
+        const wormBottomY = worm.position.y - bounds.height / 2;
 		const startX = worm.position.x - bounds.width/2;
 		const finishX = worm.position.x + bounds.width/2;
 		const samples = 5;
@@ -305,14 +306,20 @@ class GameStateTransformer extends StateTransformer {
 
 		for (let i = 0; i < samples; i++) {
 			const wormSampleX = startX + increment * i;
-			const caveY = this.caveGenerator.getTopSurfaceY(wormSampleX);
+			const caveTopY = this.caveGenerator.getTopSurfaceY(wormSampleX);
+            const caveBottomY = this.caveGenerator.getBottomSurfaceY(wormSampleX);
 
-			if (wormTopY > caveY) {
-				const collisionPoint = new vec2(wormSampleX, caveY);
+			if (wormTopY > caveTopY) {
+				const collisionPoint = new vec2(wormSampleX, caveTopY);
 				const wormPosition = worm.position.clone();
 				Events.enqueue('worm_cave_collision', {collisionPoint, wormPosition});
 				return;
-			}
+			} else if (wormBottomY < caveBottomY) {
+                const collisionPoint = new vec2(wormSampleX, caveBottomY);
+                const wormPosition = worm.position.clone();
+                Events.enqueue('worm_cave_collision', {collisionPoint, wormPosition});
+                return;
+            }
 		}
 	}
 
