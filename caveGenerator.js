@@ -3,6 +3,9 @@ const AppState = require('./appState.js');
 
 const THREE = require('three');
 
+const MIN_APERTURE = 4; // meters;
+const MAX_APERTURE = 8.5;
+
 class CaveGenerator {
 	constructor() {
 		this.junctures = [new THREE.Vector2(-100, 5), new THREE.Vector2(100, 5)]; //(x,y) points each time path slope changes
@@ -10,11 +13,13 @@ class CaveGenerator {
 	}
 
 	getTopSurfaceY(x) {
-		return this.getBasicTopSurfaceY(x) + this.noise(x);
+		const smoothTopSurface = this.getPathY(x) + this.getApertureHeight(x) / 2.;
+
+		return smoothTopSurface + this.noise(x);
 	}
 
 	noise(x) {
-		return Util.noise1d(x / 3) ** 2 * 4
+		return (Util.noise1d(x / 3) ** 2 * 4) * Util.mix(0.35, 1, Util.smoothstep(MIN_APERTURE, MAX_APERTURE, this.getApertureHeight(x)))
 		       + Util.noise1d(x * 2.) / 2.5
 		       + Util.noise1d(x * 8.) / 7.;
 	}
@@ -23,23 +28,14 @@ class CaveGenerator {
 		return this.getTopSurfaceY(x) - this.getApertureHeight(x);
 	}
 
-	getBasicTopSurfaceY(x) {
-		const maxY = Util.toMeters(AppState.canvasHeight);
-		const initialY = this.getPathY(x) + this.getApertureHeight(x) / 2.;
-		const overhang = Math.max(initialY - maxY, 0);
-
-		return initialY;// - overhang;
-	}
-
-	getBasicBottomSurfaceY(x) {
-		return this.getBasicTopSurfaceY(x) - this.getApertureHeight(x);
-	}
-
 	getApertureHeight(x) {
 		// could event just be linear if we wanted to be simple
 
-		const ratio = Util.smoothstep(0, 100, x);
-		return Util.toMeters(((1 - ratio) * 0.9 + ratio*0.4) * AppState.canvasHeight);
+		const repeatDist = 100;
+		const scaledX = x / (repeatDist / Math.PI);
+		const noise = Util.noise1d(x / 5) * 2;
+		const ratio = Util.smoothstep(0, repeatDist, (Math.sin(scaledX) + 1) / 2 * repeatDist * noise);
+		return ((1 - ratio)*MAX_APERTURE + ratio*MIN_APERTURE);
 	}
 
 	// These might also need to be functions of x like getApertureHeight(x)
