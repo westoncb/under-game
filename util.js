@@ -154,6 +154,10 @@ class Util {
       }
     }
   }
+
+  static mix(x, y, a) {
+    return x*(1-a) + y*a;
+  }
 }
 
 module.exports = Util;
