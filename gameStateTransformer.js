@@ -58,14 +58,13 @@ class GameStateTransformer extends StateTransformer {
 
         this.evolveAid = new EvolveAid(state, this.contingentEvolvers);
 
-        const uniforms = this.quadShaderCanvas.uniforms;
-        
-        if (!reset) {
-            this.caveHeightTex = this.getCaveDataTexture();
-            uniforms.caveHeights = {type: "t", value: this.caveHeightTex};
-        }
+        this.topHeightTex = this.getCaveDataTexture();
+        this.bottomHeightTex = this.getCaveDataTexture();
 
-        uniforms.caveAperture =  {value: 0.75};
+        const uniforms = this.quadShaderCanvas.uniforms;
+
+        uniforms.topHeights = {type: "t", value: this.topHeightTex};
+        uniforms.bottomHeights = {type: "t", value: this.bottomHeightTex};
         uniforms.wormDeathRatio =  {value: 0};
         uniforms.resetTransitionRatio =  {value: 0};
         uniforms.cameraPos = {value: state.camera.position};
@@ -202,11 +201,17 @@ class GameStateTransformer extends StateTransformer {
 		const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST);
 
 		for (let i = 0; i < texelCount; i++) {
-			const y = this.caveGenerator.getTopSurfaceY(i*CAVE_SAMPLE_DIST + camX);
-			this.caveHeightTex.image.data[i] = this.cameraTransform(new vec2(0, y)).y;
+			const topY = this.caveGenerator.getTopSurfaceY(i*CAVE_SAMPLE_DIST + camX);
+			this.topHeightTex.image.data[i] = this.cameraTransform(new vec2(0, topY)).y;
 		}
 
-		this.caveHeightTex.needsUpdate = true;
+        for (let i = 0; i < texelCount; i++) {
+            const bottomY = this.caveGenerator.getBottomSurfaceY(i*CAVE_SAMPLE_DIST + camX);
+            this.bottomHeightTex.image.data[i] = this.cameraTransform(new vec2(0, bottomY)).y;
+        }
+
+	    this.topHeightTex.needsUpdate = true;
+        this.bottomHeightTex.needsUpdate = true;
 	}
 
 	mapStateToUniforms(state) {
@@ -221,7 +226,6 @@ class GameStateTransformer extends StateTransformer {
 
 		uniforms.time.value = state.time;
 		uniforms.cameraPos.value = cameraPos;
-        uniforms.caveAperture.value = Util.toPixels(this.caveGenerator.getApertureHeight()) / AppState.canvasHeight;
 
         if (state.worm.dying)
             uniforms.wormDeathRatio.value = state.worm.dying.completion;
@@ -319,22 +323,24 @@ class GameStateTransformer extends StateTransformer {
 	}
 
 	getCaveDataTexture() {
-		return new THREE.DataTexture(new Float32Array(AppState.canvasWidth/CAVE_SAMPLE_DIST),
-														   AppState.canvasWidth/CAVE_SAMPLE_DIST,
-														   1,
-														   THREE.AlphaFormat,
-														   THREE.FloatType,
-														   THREE.UVMapping,
-														   THREE.ClampWrapping,
-														   THREE.ClampWrapping,
-														   THREE.LinearFilter,
-														   THREE.LinearFilter,
-														   1);
+        const width = AppState.canvasWidth/CAVE_SAMPLE_DIST;
+
+		return new THREE.DataTexture(new Float32Array(width), 
+                                       width, 
+    								   1,
+    								   THREE.AlphaFormat,
+    								   THREE.FloatType,
+    								   THREE.UVMapping,
+    								   THREE.ClampWrapping,
+    								   THREE.ClampWrapping,
+    								   THREE.LinearFilter,
+    								   THREE.LinearFilter,
+									   1);
 	}
 
     getInitialWormPosition() {
         const x = AppState.canvasWidth * 0.1;
-        const y = this.caveGenerator.getTopSurfaceY(x) - this.caveGenerator.getApertureHeight(x) / 2;
+        const y = (this.caveGenerator.getTopSurfaceY(x) + this.caveGenerator.getBottomSurfaceY(x)) / 2;
 
         return new vec2(Util.toMeters(x), y);
     }

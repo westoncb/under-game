@@ -10,8 +10,8 @@ class GameFragmentShader {
 			uniform float time;
 			uniform mat4 wormData;
 			uniform mat4 wormData2;
-			uniform sampler2D caveHeights;
-			uniform float caveAperture;
+			uniform sampler2D topHeights;
+			uniform sampler2D bottomHeights;
 			uniform float wormDeathRatio;
 			uniform float resetTransitionRatio;
 
@@ -193,13 +193,15 @@ class GameFragmentShader {
 			}
 
 			float caveDistance(vec2 uv, vec2 p) {
-				float height = texture2D(caveHeights, vec2(p.x, 0.)).a;
+				float topHeight = texture2D(topHeights, vec2(p.x, 0.)).a;
+				float bottomHeight = texture2D(bottomHeights, vec2(p.x, 0.)).a;
+
 				float deathRatio = smoothstep(0., 0.4, pow(wormDeathRatio, 4.));
 				float deathAndRebirthAnimRatio = deathRatio - smoothstep(.5, 1., resetTransitionRatio);
 				
-				float caveShutDistance = deathAndRebirthAnimRatio * caveAperture/2.;
-				float topDist = height - caveShutDistance - uv.y;
-				float bottomDist = uv.y - (height - caveAperture + caveShutDistance);
+				float caveShutDistance = deathAndRebirthAnimRatio * (topHeight - bottomHeight)/2.;
+				float topDist = topHeight - caveShutDistance - uv.y;
+				float bottomDist = uv.y - (bottomHeight + caveShutDistance);
 				
 				return min(topDist, bottomDist);
 			}

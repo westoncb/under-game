@@ -22,10 +22,7 @@ class CaveGenerator {
 	}
 
 	getBottomSurfaceY(x) {
-		x = Util.toMeters(x);
-		const noise = blah(x);
-
-		return this.getBasicBottomSurfaceY(x) - noise;
+		return this.getTopSurfaceY(x) - this.getApertureHeight(Util.toMeters(x));
 	}
 
 	getBasicTopSurfaceY(x) {
@@ -43,7 +40,8 @@ class CaveGenerator {
 	getApertureHeight(x) {
 		// could event just be linear if we wanted to be simple
 
-		return Util.toMeters(0.75 * AppState.canvasHeight);
+		const ratio = Util.smoothstep(0, 100, x);
+		return Util.toMeters(((1 - ratio) * 0.9 + ratio*0.4) * AppState.canvasHeight);
 	}
 
 	// These might also need to be functions of x like getApertureHeight(x)
