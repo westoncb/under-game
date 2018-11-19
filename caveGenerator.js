@@ -10,8 +10,6 @@ class CaveGenerator {
 	}
 
 	getTopSurfaceY(x) {
-		x = Util.toMeters(x);
-
 		return this.getBasicTopSurfaceY(x) + this.noise(x);
 	}
 
@@ -22,7 +20,7 @@ class CaveGenerator {
 	}
 
 	getBottomSurfaceY(x) {
-		return this.getTopSurfaceY(x) - this.getApertureHeight(Util.toMeters(x));
+		return this.getTopSurfaceY(x) - this.getApertureHeight(x);
 	}
 
 	getBasicTopSurfaceY(x) {
@@ -93,8 +91,6 @@ class CaveGenerator {
 		const length = Math.random() * 20 + 5;
 		const angle = Math.random() * (Math.PI / 2) - (Math.PI / 4);
 		const newJuncture = lastJuncture.clone().add(new THREE.Vector2(Math.cos(angle) * length, Math.sin(angle) * length));
-
-		// newJuncture.y = Math.max(Math.min(newJuncture.y, Util.toMeters(AppState.canvasHeight)), 0);
 
 		return newJuncture;
 	}

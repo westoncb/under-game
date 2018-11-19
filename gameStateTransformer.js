@@ -201,14 +201,14 @@ class GameStateTransformer extends StateTransformer {
 		const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST);
 
 		for (let i = 0; i < texelCount; i++) {
-			const topY = this.caveGenerator.getTopSurfaceY(i*CAVE_SAMPLE_DIST + camX);
-			this.topHeightTex.image.data[i] = this.cameraTransform(new vec2(0, topY)).y;
-		}
+            const xPixelInMeters = Util.toMeters(i*CAVE_SAMPLE_DIST + camX);
 
-        for (let i = 0; i < texelCount; i++) {
-            const bottomY = this.caveGenerator.getBottomSurfaceY(i*CAVE_SAMPLE_DIST + camX);
+			const topY = this.caveGenerator.getTopSurfaceY(xPixelInMeters);
+			this.topHeightTex.image.data[i] = this.cameraTransform(new vec2(0, topY)).y;
+
+            const bottomY = this.caveGenerator.getBottomSurfaceY(xPixelInMeters);
             this.bottomHeightTex.image.data[i] = this.cameraTransform(new vec2(0, bottomY)).y;
-        }
+		}
 
 	    this.topHeightTex.needsUpdate = true;
         this.bottomHeightTex.needsUpdate = true;
@@ -298,8 +298,8 @@ class GameStateTransformer extends StateTransformer {
 
 		const bounds = worm.collisionBounds;
 		const wormTopY = worm.position.y + bounds.height / 2;
-		const startX = Util.toPixels(worm.position.x - bounds.width/2);
-		const finishX = Util.toPixels(worm.position.x + bounds.width/2);
+		const startX = worm.position.x - bounds.width/2;
+		const finishX = worm.position.x + bounds.width/2;
 		const samples = 5;
 		const increment = (finishX - startX) / (samples - 1);
 
@@ -339,10 +339,10 @@ class GameStateTransformer extends StateTransformer {
 	}
 
     getInitialWormPosition() {
-        const x = AppState.canvasWidth * 0.1;
+        const x = Util.toMeters(AppState.canvasWidth * 0.1);
         const y = (this.caveGenerator.getTopSurfaceY(x) + this.caveGenerator.getBottomSurfaceY(x)) / 2;
 
-        return new vec2(Util.toMeters(x), y);
+        return new vec2(x, y);
     }
 
 	setUpBrowserInputHandlers() {
