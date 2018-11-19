@@ -16,71 +16,87 @@ const WORM_BLOCK_SPACING = 0.8;
 
 class GameStateTransformer extends StateTransformer {
 	setUp() {
-		this.state = {
-			time: 0,
-			worm: {position: new vec2(),
-					 velocity: new vec2(),
-					 rotation: 0,
-					 mass: 10,
-					 activeForces: [],
-					 velocityCap: new vec2(6, 10),
-					 collisionBounds: {width: 0.4, height: 0.4},
-					}, 
-			camera: {position: new vec2(),
-					 velocity: new vec2(),
-					 activeForces: [],
-					 mass: 2,
-					 velocityCap: new vec2(10, 30),
-					},
-			keyStates: {},
-			wormYHistory: [],
-			yHistoryIndex: 0,
-		};
+		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText());
+
+        this.caveGenerator = new CaveGenerator();
+
+        this.initState(false);
+
+		this.setUpBrowserInputHandlers();
+	}
+
+    initState(reset) {
+        const lastState = this.state;
+
+        const state = {
+            time: 0,
+            worm: { position: this.getInitialWormPosition(),
+                    velocity: new vec2(),
+                    rotation: 0,
+                    mass: 10,
+                    activeForces: [],
+                    velocityCap: new vec2(6, 10),
+                    collisionBounds: {width: 0.4, height: 0.4},
+                    }, 
+            camera: {position: this.getInitialWormPosition(),
+                     velocity: new vec2(),
+                     activeForces: [],
+                     mass: 2,
+                     velocityCap: new vec2(10, 30),
+                    },
+            keyStates: {},
+            gameTime: 0,
+            wormYHistory: [],
+            yHistoryIndex: 0,
+        };
 
         // Takes objects with two properties: condition and evolve, both of which
         // should be functions. 'condition' is passed the current state and returns
         // a boolean indicataing whether 'evolve' should be executed each frame.
         // 'evolve' is passed the current state and deltaTime.
-		this.contingentEvolvers = [];
+        this.contingentEvolvers = [];
 
-		this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
+        this.evolveAid = new EvolveAid(state, this.contingentEvolvers);
 
-		const uniforms = {cameraPos: {value: this.state.camera.position},
-						  wormData: {value: new Float32Array(16)},
-						  wormData2: {value: new Float32Array(16)},
-						  caveAperture: {value: 0.75},
-                          wormDeathRatio: {value: 0},
-                          resetTransitionRatio: {value: 0},
-						 }
+        const uniforms = this.quadShaderCanvas.uniforms;
+        
+        if (!reset) {
+            this.caveHeightTex = this.getCaveDataTexture();
+            uniforms.caveHeights = {type: "t", value: this.caveHeightTex};
+        }
 
-		this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText(), uniforms);
+        uniforms.caveAperture =  {value: 0.75};
+        uniforms.wormDeathRatio =  {value: 0};
+        uniforms.resetTransitionRatio =  {value: 0};
+        uniforms.cameraPos = {value: state.camera.position};
+        uniforms.wormData =  {value: new Float32Array(16)};
+        uniforms.wormData2 =  {value: new Float32Array(16)};
 
-		this.caveHeightTex = this.getCaveDataTexture();
-		this.quadShaderCanvas.uniforms['caveHeights'] = {type: "t", value: this.caveHeightTex};
-
-		this.state.worm.position = this.getInitialWormPosition();
-		this.state.camera.position = Util.toMetersV(new vec2(AppState.canvasWidth/2,
-															 AppState.canvasHeight/2));
-
-		this.setUpBrowserInputHandlers();
-
-		this.caveGenerator = new CaveGenerator();
-	}
+        this.state = state;
+    }
 
 	handleEvent(event) {
 		if (event.name === 'worm_cave_collision') {
-			const targetPosition = event.data.wormPosition.clone().add(new vec2(0, 10));
 			this.evolveAid.runTransientState('worm.dying',
-						   {position: event.data.wormPosition, targetPosition}, 
+						   {position: event.data.wormPosition}, 
 						   1.5);
 		} else if (event.name === 'worm.dying_finished') {
             this.evolveAid.runTransientState('resetTransition', {}, 1.5);
+
+            // This is a little trick to regenerate the cave shape using a
+            // new seed while in the middle of the 'resetTransition' animation.
+            setTimeout(() => {
+                this.caveGenerator = new CaveGenerator();
+                this.state.worm.position = this.getInitialWormPosition();
+                this.state.camera.position = this.getInitialWormPosition();
+            }, 400);
+        } else if (event.name === 'resetTransition_finished') {
+
+            this.initState(true)
         }
 	}
 
 	update(time, deltaTime) {
-		super.update(time, deltaTime);
-
 		if (this.focused) {
 			this.assignEnvironmentalForces();
 
@@ -96,12 +112,17 @@ class GameStateTransformer extends StateTransformer {
 
 			this.state.time = time;
 
+            this.state.gameTime += deltaTime;
+
 			this.mapStateToUniforms(this.state);
 		}
 	}
 
 	updateKinematics(deltaTime) {
-		const entities = [this.state.camera, this.state.worm];
+		const entities = [this.state.camera];
+
+        if (!this.state.worm.dying && !this.state.resetTransition);
+            entities.push(this.state.worm);
 
 		entities.forEach(entity => {
 			if (entity === this.state.camera) {
@@ -165,7 +186,7 @@ class GameStateTransformer extends StateTransformer {
 		const gravityForceMagnitude = (gravityConstant * earthMass * worm.mass) / 6.38e6 ** 2;
 
 		// Weaken gravity and thrust for the first few seconds
-		const introScale = Util.smoothstep(0, 3, this.state.time);
+		const introScale = Util.smoothstep(0, 3, this.state.gameTime);
 
 		worm.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
 
@@ -200,6 +221,8 @@ class GameStateTransformer extends StateTransformer {
 
 		uniforms.time.value = state.time;
 		uniforms.cameraPos.value = cameraPos;
+        uniforms.caveAperture.value = Util.toPixels(this.caveGenerator.getApertureHeight()) / AppState.canvasHeight;
+
         if (state.worm.dying)
             uniforms.wormDeathRatio.value = state.worm.dying.completion;
         if (state.resetTransition)
@@ -212,7 +235,7 @@ class GameStateTransformer extends StateTransformer {
 
 			const wormPosClone = state.worm.position.clone();
             wormPosClone.x += -WORM_BLOCK_SPACING * i;
-            wormPosClone.y = this.getPastWormY(wormPosClone.x);                
+            wormPosClone.y = this.getPastWormY(wormPosClone.x);
             this.setWormPartData(this.cameraTransform(wormPosClone), rotation, i);
 		}
 	}
@@ -295,11 +318,6 @@ class GameStateTransformer extends StateTransformer {
 		}
 	}
 
-	getInitialWormPosition() {
-		return Util.toMetersV(new vec2(AppState.canvasWidth * 0.1,
-									   AppState.canvasHeight / 2));
-	}
-
 	getCaveDataTexture() {
 		return new THREE.DataTexture(new Float32Array(AppState.canvasWidth/CAVE_SAMPLE_DIST),
 														   AppState.canvasWidth/CAVE_SAMPLE_DIST,
@@ -313,6 +331,13 @@ class GameStateTransformer extends StateTransformer {
 														   THREE.LinearFilter,
 														   1);
 	}
+
+    getInitialWormPosition() {
+        const x = AppState.canvasWidth * 0.1;
+        const y = this.caveGenerator.getTopSurfaceY(x) - this.caveGenerator.getApertureHeight(x) / 2;
+
+        return new vec2(Util.toMeters(x), y);
+    }
 
 	setUpBrowserInputHandlers() {
 		const canvas = this.quadShaderCanvas.renderer.domElement;

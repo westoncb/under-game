@@ -118,7 +118,7 @@ class GameFragmentShader {
 				float cornerRadius = 0.014;
 				vec2 boxSize = vec2(sideLength, sideLength);
 
-				float wormDeathMod = smoothstep(0., 0.35, wormDeathRatio);
+				float wormDeathMod = smoothstep(0., 0.35, wormDeathRatio) - smoothstep(0.75, 1., resetTransitionRatio);
 				float x = noise(uv) * (sin(wormDeathMod * PI / 4.));
 				float y = noise(uv * (cos(wormDeathMod * PI / 4.)) * 30.);
 				vec2 deathAnimOffset = vec2(x, y) * 20. * wormDeathMod;
@@ -168,7 +168,7 @@ class GameFragmentShader {
 
 				float glow = (1. - smoothstep(0., .04, negDist)) * 0.8;
 
-				float deathAndRebirthAnimRatio = (wormDeathRatio - smoothstep(.5, 1., resetTransitionRatio));
+				float deathAndRebirthAnimRatio = (wormDeathRatio - smoothstep(.5, 1., pow(resetTransitionRatio, 2.)));
 
 				// Fade out glow during death
 				glow += -glow * deathAndRebirthAnimRatio;
