@@ -4,13 +4,12 @@ const AppState = require('./appState.js');
 const dat = require('dat.GUI');
 
 class QuadShaderCanvas {
-	constructor(containerElementId, fragmentShader, customUniforms) {
+	constructor(containerElementId, fragmentShader) {
 		this.containerElementId = containerElementId;
 		const containerElement = document.getElementById(this.containerElementId);
 
 		this.width = containerElement.offsetWidth;
 		this.height = containerElement.offsetHeight;
-		this.customUniforms = customUniforms || {};
 
 		this.initThreeJS();
 		this.initScene(fragmentShader);
@@ -44,13 +43,9 @@ class QuadShaderCanvas {
 		const uniforms = {time: { value: 1.0 },
 					      resolution: { value: new THREE.Vector2(this.width, this.height)},
 					  	  aspectRatio: {value: this.width/this.height}};
-		Object.keys(this.customUniforms).forEach(uniformKey => {
-			uniforms[uniformKey] = this.customUniforms[uniformKey];
-		});
 
 		const geometry = new THREE.PlaneBufferGeometry(this.width, this.height);
 		const material = new THREE.RawShaderMaterial( {
-
 		    uniforms,
 		    vertexShader: this.getVertexShader(),
 		    fragmentShader,
