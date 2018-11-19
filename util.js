@@ -53,7 +53,7 @@ var Simple1DNoise = function() {
     };
 };
 
-const noiseGenerator1d = new Simple1DNoise();
+let noiseGenerator1d = new Simple1DNoise();
 
 class Util {
   // See https://hansmuller-webkit.blogspot.com/2013/02/where-is-mouse.html
@@ -103,6 +103,10 @@ class Util {
 
   static toMetersV(vec) {
     return vec.clone().multiplyScalar(1 / METERS_TO_PIXELS);
+  }
+
+  static newNoiseSeed() {
+    noiseGenerator1d = new Simple1DNoise();
   }
 
   static noise1d(x) {
