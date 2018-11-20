@@ -14,6 +14,8 @@ class GameFragmentShader {
 			uniform sampler2D bottomHeights;
 			uniform float wormDeathRatio;
 			uniform float resetTransitionRatio;
+			uniform float pointZoneHeight;
+			uniform float pointZoneIntensity;
 
 			#define PI 3.14159265
 
@@ -220,6 +222,21 @@ class GameFragmentShader {
 
 				vec4 color;
 
+				float modPointZoneHeight = pointZoneHeight * pointZoneIntensity;
+
+				vec4 adder = vec4(0.);
+
+				if (caveDist < modPointZoneHeight && caveDist > 0. && wormDist < 7.) {
+					modPointZoneHeight *= (noise(uv * 5.) + 1.) / 2.;
+					float diff = modPointZoneHeight - caveDist;
+					float heightFactor = smoothstep(0.075, 1., diff / modPointZoneHeight);
+
+					float flameR = 0.2 + heightFactor * 2.;
+					float flameB = 0.5 - heightFactor / 4.;
+					float flameA = heightFactor * smoothstep(5., 2., wormDist);
+					adder = vec4(flameR, 0., flameB, flameA);
+				} 
+
 				if (caveDist < 0.) {
 
 					color = getCaveWallColor(caveDist, p);
@@ -229,6 +246,10 @@ class GameFragmentShader {
 				} else {
 
 					color = bgColor(uv);
+
+					// Add in flame color
+					color.r += (adder.r + adder.a / 5.) * adder.a;
+					color.b += (adder.b + adder.a / 2.) * adder.a;
 				}
 
 				gl_FragColor = color;
