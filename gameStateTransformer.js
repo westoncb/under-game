@@ -52,6 +52,7 @@ class GameStateTransformer extends StateTransformer {
             timeOutOfZone: 0,
             inZone: false,
             pointZoneIntensity: 0,
+            points: 0,
         };
 
         // Takes objects with two properties: 'condition' and 'evolve', both of which
@@ -62,12 +63,14 @@ class GameStateTransformer extends StateTransformer {
                                     {condition: (state) => state.inZone,
                                      evolve: (state, deltaTime) => {
                                         state.timeInZone += deltaTime;
-                                        state.pointZoneIntensity = Math.min(state.pointZoneIntensity + deltaTime * 4, 1.);
+                                        state.pointZoneIntensity = Math.min(state.pointZoneIntensity + deltaTime / 3, 1.);
+                                        state.points += deltaTime * Math.pow(state.timeInZone + 1, 2);
+                                        this.updatePointDisplay(state);
                                      }},
                                     {condition: (state) => !state.inZone,
                                      evolve: (state, deltaTime) => {
                                         state.timeOutOfZone += deltaTime;
-                                        state.pointZoneIntensity = Math.max(state.pointZoneIntensity - deltaTime / 2., 0.);
+                                        state.pointZoneIntensity = Math.max(state.pointZoneIntensity - deltaTime, 0.);
                                      }}
                                   ];
 
@@ -89,6 +92,8 @@ class GameStateTransformer extends StateTransformer {
         uniforms.pointZoneHeight = {value: 0};
         uniforms.pointZoneIntensity = {value: 0};
 
+        this.updatePointDisplay(state);
+
         this.state = state;
     }
 
@@ -96,6 +101,9 @@ class GameStateTransformer extends StateTransformer {
         const state = this.state;
 
         if (event.name === 'worm_cave_collision') {
+            state.inZone = false;
+            state.pointZoneIntensity = 0;
+            state.timeInZone = 0;
             this.evolveAid.runTransientState('worm.dying',
                            {position: event.data.wormPosition}, 1.5);
         } else if (event.name === 'worm.dying_finished') {
@@ -115,7 +123,9 @@ class GameStateTransformer extends StateTransformer {
 
             state.timeOutOfZone = 0;
             state.timeInZone = 0;
-            state.inZone = true;
+            if (!state.worm.dying) {
+                state.inZone = true;
+            }
         } else if (event.name === 'point_zone_exit') {
 
             state.timeInZone = 0;
@@ -444,6 +454,10 @@ class GameStateTransformer extends StateTransformer {
         canvas.addEventListener('focus', (e) => {
             this.focused = true;
         });
+    }
+
+    updatePointDisplay(state) {
+        document.getElementById('points').innerHTML = "" + Math.floor(state.points);
     }
 
     tearDown() {}
