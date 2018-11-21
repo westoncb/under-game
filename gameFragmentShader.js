@@ -22,11 +22,6 @@ class GameFragmentShader {
 
 			#define PI 3.14159265
 
-			float beat(float value, float intensity, float frequency) {
-			  float v = atan(sin(value * PI * frequency) * intensity);
-			  return (v + PI / 2.) / PI;
-			}
-
 			// Similar to fOpUnionRound, but more lipschitz-y at acute angles
 			// (and less so at 90 degrees). Useful when fudging around too much
 			// by MediaMolecule, from Alex Evans' siggraph slides
@@ -99,15 +94,11 @@ class GameFragmentShader {
 			  return c;
 			}
 
-			float coolWormNoise(vec2 uv) {
-				return noise((uv * 10.)) / 2.;
-			}
-
 			vec4 bgColor(vec2 uv) {
 				vec2 modifiedUV = uv + cameraPos * 0.25;
-				float noise1 = coolWormNoise(modifiedUV * .5)*coolWormNoise(modifiedUV * 5.) * 2.5;
+				float noise1 = noise(modifiedUV * 5.)*noise(modifiedUV * 50.) / 2.;
 
-				float r = noise1 + noise1/3. * bgDeathRebirthRatio;
+				float r = noise1 + noise1/3. * (1. + bgDeathRebirthRatio);
 				float g = noise1 / 2.;
 				float b = noise1 * 2.2 + ((sin(time / 2.) + 1.) / 2.) * 0.05;
 
@@ -122,8 +113,9 @@ class GameFragmentShader {
 				float cornerRadius = 0.014;
 				vec2 boxSize = vec2(sideLength, sideLength);
 
-				float x = noise(uv) * (sin(wormDeathRebirthRatio * PI / 4.));
-				float y = noise(uv * (cos(wormDeathRebirthRatio * PI / 4.)) * 30.);
+				float angle = wormDeathRebirthRatio * PI / 4.;
+				float x = noise(uv) * sin(angle);
+				float y = noise(uv * cos(angle) * 30.);
 				vec2 deathAnimOffset = vec2(x, y) * 20. * wormDeathRebirthRatio;
 
 				uv += deathAnimOffset;
@@ -147,23 +139,22 @@ class GameFragmentShader {
 
 			vec4 getWormColor(float dist, vec2 uv) {
 				dist += 0.3 + (pointZoneIntensity * 0.1);
-				float borderMod = smoothstep(0.1, 0.3, dist) / 4.5;
+
+				float borderMod = smoothstep(0.1, 0.3, dist) * 3.;
 				float brighten = abs(-dist / 1.5) * (1. + pointZoneIntensity);
 
-				float r = brighten + (borderMod * 3. * pointZoneIntensity);
-				float g = brighten - (borderMod * 3. * pointZoneIntensity);
-				float b = (cos(time) + 1.) * 0.2 + brighten*2. + borderMod * 3. - (borderMod * 3. * pointZoneIntensity);
+				float r = brighten + (borderMod * pointZoneIntensity);
+				float g = brighten - (borderMod * pointZoneIntensity);
+				float b = (cos(time) + 1.) * 0.2 + brighten*2. + borderMod - (borderMod * pointZoneIntensity);
 
-				float c = coolWormNoise(uv + cameraPos * 0.25);
+				float c = noise((uv + cameraPos * .25) * 10.) / 2.;
 
 				g += c * 0.4;
 				b += c * 0.8;
 
-				// Change color for death animation
-				r -= smoothstep(0., 1., wormDeathRebirthRatio);
-				b += smoothstep(0., 1., wormDeathRebirthRatio) * 10.;
+				b += wormDeathRebirthRatio;
 
-				return vec4(r, g, b, 1.);
+				return vec4(r, g, b, 1.) * smoothstep(0.3, 0.2, dist);
 			}
 
 			vec4 getCaveWallColor(float dist, vec2 p) {
@@ -183,12 +174,11 @@ class GameFragmentShader {
 
 				float deathAnimScale = (1. - cavePatternDeathRebirthRatio / 2.5);
 				float distWithNoise = negDist + noise1 * deathAnimScale;
-				float noise2 = noise(vec2(0., pModInterval1(distWithNoise, 0.05, 0., 13.)));
-
+				float noise2 = noise(vec2(0., pModInterval1(distWithNoise, 0.05, 0., 13.))) / 4.;
 
 				float r = 0.2 - (glow * 0.2) + noise2 * 0.5;
-				float g = 0.2 - (glow * 0.2) + noise2 * 0.5;
-				float b = (glow + steppedNoise) / 3. + (0.25) + noise2 * (sin(time) + 2.) / 10. + 0.05;
+				float g = r;
+				float b = (glow + steppedNoise) / 3. + noise2 + 0.4;
 
 				return vec4(r, g, b, 1.0);
 			}
@@ -204,27 +194,26 @@ class GameFragmentShader {
 				return min(topDist, bottomDist);
 			}
 
-			float fOpIntersectionRound(float a, float b, float r) {
-				vec2 u = max(vec2(r + a,r + b), vec2(0));
-				return min(-r, max (a, b)) + length(u);
-			}
-
 			void main(void) {
 				vec2 p = gl_FragCoord.xy / resolution.xy;
 				vec2 uv = p * vec2(aspectRatio, 1.0);
 
 
-				float wormDist = wormDistance(uv);
 				float caveDist = caveDistance(uv, p);
-
 				if (caveDist < 0.) {
 
 					gl_FragColor = getCaveWallColor(caveDist, p);
-				} else if (wormDist < 0.) {
+					return;
+				}
+
+				float wormDist = wormDistance(uv);
+				if (wormDist < 0.) {
 
 					gl_FragColor = getWormColor(wormDist, uv);
-				} else {
-					float inZone = step(caveDist - pointZoneHeight, 0.) * step(wormDist - 7., 0.);
+
+				} else { // background + point-zone flame
+
+					float inPointZone = step(caveDist - pointZoneHeight, 0.) * step(wormDist - 7., 0.);
 
 					float modPointZoneHeight = pointZoneHeight * (noise(uv * 5.) + 1.) / 2.;
 					float diff = modPointZoneHeight - caveDist;
@@ -232,7 +221,7 @@ class GameFragmentShader {
 
 					float flameR = 0.2 + heightFactor * 2.;
 					float flameB = 0.5 - heightFactor / 4.;
-					float flameA = heightFactor * smoothstep(5., 2., wormDist) * inZone;
+					float flameA = heightFactor * smoothstep(5., 2., wormDist) * inPointZone;
 
 					vec4 flameVec = vec4((flameR + flameA / 5.), 0., (flameB + flameA / 2.), 0.) * flameA;
 
