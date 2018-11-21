@@ -83,7 +83,10 @@ class GameStateTransformer extends StateTransformer {
 
         uniforms.topHeights = {type: "t", value: this.topHeightTex};
         uniforms.bottomHeights = {type: "t", value: this.bottomHeightTex};
-        uniforms.wormDeathRatio =  {value: 0};
+        uniforms.wormDeathRebirthRatio = {value: 0};
+        uniforms.bgDeathRebirthRatio = {value: 0};
+        uniforms.caveShutDeathRebirthRatio = {value: 0};
+        uniforms.cavePatternDeathRebirthRatio = {value: 0};
         uniforms.resetTransitionRatio =  {value: 0};
         uniforms.cameraPos = {value: state.camera.position};
         uniforms.wormData =  {value: new Float32Array(16)};
@@ -256,8 +259,9 @@ class GameStateTransformer extends StateTransformer {
     mapStateToUniforms(state) {
         const uniforms = this.quadShaderCanvas.uniforms;
         const aspectRatio = AppState.canvasWidth / AppState.canvasHeight;
+        const worm = state.worm;
 
-        const wormPos = this.cameraTransform(state.worm.position);
+        const wormPos = this.cameraTransform(worm.position);
 
         const cameraPos = Util.toPixelsV(state.camera.position);
         cameraPos.x /= AppState.canvasWidth;
@@ -267,20 +271,29 @@ class GameStateTransformer extends StateTransformer {
         uniforms.time.value = state.time;
         uniforms.cameraPos.value = cameraPos;
 
-        if (state.worm.dying)
-            uniforms.wormDeathRatio.value = state.worm.dying.completion;
         if (state.resetTransition)
             uniforms.resetTransitionRatio.value = state.resetTransition.completion;
 
         uniforms.pointZoneIntensity.value = Util.smoothstep(0.1, 1., state.pointZoneIntensity);
-        uniforms.pointZoneHeight.value = Util.toPixels(this.getPointZoneHeight(state.timeInZone)) / AppState.canvasHeight * (1/aspectRatio);
+        uniforms.pointZoneHeight.value = Util.toPixels(this.getPointZoneHeight(state.timeInZone)) / AppState.canvasHeight * (1/aspectRatio) * uniforms.pointZoneIntensity.value;
+
+        const wormDeathRatio = worm.dying ? worm.dying.completion : 0;
+        const resetTransitionRatio = uniforms.resetTransitionRatio.value;
+
+        // These are all timed-event completion ratios for effects that play forward for death
+        // then in reverse for rebirth.
+        uniforms.wormDeathRebirthRatio.value = Util.smoothstep(0., 0.35, wormDeathRatio) - Util.smoothstep(0.75, 1., resetTransitionRatio);
+        uniforms.bgDeathRebirthRatio.value = Util.smoothstep(0., 0.4, wormDeathRatio) - resetTransitionRatio;
+        uniforms.caveShutDeathRebirthRatio.value = Util.smoothstep(0., 0.4, Math.pow(wormDeathRatio, 4.)) - Util.smoothstep(.5, 1., resetTransitionRatio);
+        uniforms.cavePatternDeathRebirthRatio.value = (wormDeathRatio - Util.smoothstep(.5, 1., Math.pow(resetTransitionRatio, 2.)));
+
 
         // Update trailing worm block positions
         // and copy into matrix uniforms
         for (let i = 0; i < 6; i++) {
-            const rotation = state.worm.velocity.clone().normalize().angle();
+            const rotation = worm.velocity.clone().normalize().angle();
 
-            const wormPosClone = state.worm.position.clone();
+            const wormPosClone = worm.position.clone();
             wormPosClone.x += -WORM_BLOCK_SPACING * i;
             wormPosClone.y = this.getPastWormY(wormPosClone.x);
             this.setWormPartData(this.cameraTransform(wormPosClone), rotation, i);
