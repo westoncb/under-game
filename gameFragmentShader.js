@@ -178,7 +178,7 @@ class GameFragmentShader {
 
 				float r = 0.2 - (glow * 0.2) + noise2 * 0.5;
 				float g = r;
-				float b = (glow + steppedNoise) / 3. + noise2 + 0.4;
+				float b = (glow + steppedNoise) / 3. + noise2 + 0.5;
 
 				return vec4(r, g, b, 1.0);
 			}
