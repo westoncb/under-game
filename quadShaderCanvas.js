@@ -1,7 +1,6 @@
 const THREE = require('three');
 const Stats = require('stats-js');
 const AppState = require('./appState.js');
-const dat = require('dat.GUI');
 
 class QuadShaderCanvas {
 	constructor(containerElementId, fragmentShader) {
@@ -35,8 +34,6 @@ class QuadShaderCanvas {
 	    this.scene.add(this.camera);
 
 	    window.addEventListener( 'resize', this.updateCanvasSize.bind(this), false );
-
-	    // this.datgui = new dat.GUI( { width: 350 } );
 	}
 
 	initScene(fragmentShader) {

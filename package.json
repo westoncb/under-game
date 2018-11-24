@@ -6,10 +6,8 @@
   "author": "Weston C. Beecroft",
   "license": "MIT",
   "dependencies": {
-    "dat.gui": "^0.7.2",
     "stats-js": "^1.0.0-alpha1",
     "three": "^0.88.0",
-    "three-orbit-controls": "^82.1.0",
-    "watchify": "^3.11.0"
+    "howler": "^2.0.15"
   }
 }
