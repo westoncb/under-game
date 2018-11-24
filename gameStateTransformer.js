@@ -15,39 +15,62 @@ const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 4;
 const WORM_BLOCK_SPACING = 0.8;
 
+// These are constructed here for performance reasons
+const GRAVITY_VEC = new vec2();
+const WORM_FORWARD_VEC = new vec2();
+const WORM_UP_VEC = new vec2();
+const TOTAL_FORCE_VEC = new vec2();
+const ACCEL_VEC = new vec2();
+
 class GameStateTransformer extends StateTransformer {
     setUp() {
         this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText());
 
         this.caveGenerator = new CaveGenerator();
 
-        this.initState();
-
         this.setUpBrowserInputHandlers();
 
-        this.deathSound = new Howl({
-              src: ['sounds/exit.wav']
-            });
-        this.birthSound = new Howl({
-              src: ['sounds/link.wav']
-            });
-        this.caveShutSound = new Howl({
-              src: ['sounds/rock_breaking.flac']
-            });
-        this.accelerationSound = new Howl({
-              src: ['sounds/engine.wav'],
-              loop: true,
-            });
-        this.caveOpen = new Howl({
-              src: ['sounds/powerDrain.ogg'],
-            });
+        this.loadSounds();
 
+        this.createCaveDataTextures();
+
+        this.initGame();
+    }
+
+    initGame() {
+        this.initState();
+        this.initUniforms();
+        this.initEvolveAid();
+
+        this.updatePointDisplay();
         this.birthSound.play();
     }
 
-    initState() {
-        const lastState = this.state;
+    update(time, deltaTime) {
+        if (this.focused) {
+            this.assignEnvironmentalForces();
 
+            this.updateKinematics(deltaTime);
+
+            this.updateCameraPosition();
+
+            this.runEnvironmentalEventGenerators();
+
+            this.updateCaveGeometry();
+
+            this.updateWorm();
+
+            this.evolveAid.update(time, deltaTime);
+
+            this.state.time = time;
+
+            this.state.gameTime += deltaTime;
+
+            this.mapStateToUniforms(this.state);
+        }
+    }
+
+    initState() {
         const state = {
             time: 0,
             worm: { position: this.getInitialWormPosition(),
@@ -58,13 +81,8 @@ class GameStateTransformer extends StateTransformer {
                     velocityCap: new vec2(6.5, 10),
                     collisionBounds: {width: 0.4, height: 0.4},
                     }, 
-            camera: {position: this.getInitialWormPosition(),
-                     velocity: new vec2(),
-                     activeForces: [],
-                     mass: 2,
-                     velocityCap: new vec2(10, 30),
-                    },
-            keyStates: {},
+            camera: {position: this.getInitialWormPosition()},
+            keyStates: {}, // Keyboard keys
             gameTime: 0,
             wormYHistory: [],
             yHistoryIndex: 0,
@@ -75,6 +93,31 @@ class GameStateTransformer extends StateTransformer {
             points: 0,
         };
 
+        state.worm.ignoreKinematics = () => this.state.worm.dying || this.state.resetTransition;
+
+        this.state = state;
+    }
+
+    initUniforms() {
+        const state = this.state;
+        const uniforms = this.quadShaderCanvas.uniforms;
+
+        uniforms.topHeights = {type: "t", value: this.topHeightTex};
+        uniforms.bottomHeights = {type: "t", value: this.bottomHeightTex};
+        uniforms.wormDeathRebirthRatio = {value: 0};
+        uniforms.bgDeathRebirthRatio = {value: 0};
+        uniforms.caveShutDeathRebirthRatio = {value: 0};
+        uniforms.cavePatternDeathRebirthRatio = {value: 0};
+        uniforms.resetTransitionRatio =  {value: 0};
+        uniforms.cameraPos = {value: state.camera.position};
+        uniforms.wormData =  {value: new Float32Array(16)};
+        uniforms.wormData2 =  {value: new Float32Array(16)};
+        uniforms.inZone = {value: 0};
+        uniforms.pointZoneHeight = {value: 0};
+        uniforms.pointZoneIntensity = {value: 0};
+    }
+
+    initEvolveAid() {
         // Takes objects with two properties: 'condition' and 'evolve', both of which
         // should be functions. 'condition' is passed the current state and returns
         // a boolean indicataing whether 'evolve' should be executed each frame.
@@ -95,30 +138,7 @@ class GameStateTransformer extends StateTransformer {
                                      }}
                                   ];
 
-        this.evolveAid = new EvolveAid(state, this.contingentEvolvers);
-
-        this.topHeightTex = this.getCaveDataTexture();
-        this.bottomHeightTex = this.getCaveDataTexture();
-
-        const uniforms = this.quadShaderCanvas.uniforms;
-
-        uniforms.topHeights = {type: "t", value: this.topHeightTex};
-        uniforms.bottomHeights = {type: "t", value: this.bottomHeightTex};
-        uniforms.wormDeathRebirthRatio = {value: 0};
-        uniforms.bgDeathRebirthRatio = {value: 0};
-        uniforms.caveShutDeathRebirthRatio = {value: 0};
-        uniforms.cavePatternDeathRebirthRatio = {value: 0};
-        uniforms.resetTransitionRatio =  {value: 0};
-        uniforms.cameraPos = {value: state.camera.position};
-        uniforms.wormData =  {value: new Float32Array(16)};
-        uniforms.wormData2 =  {value: new Float32Array(16)};
-        uniforms.inZone = {value: 0};
-        uniforms.pointZoneHeight = {value: 0};
-        uniforms.pointZoneIntensity = {value: 0};
-
-        this.updatePointDisplay(state);
-
-        this.state = state;
+        this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
     }
 
     handleEvent(event) {
@@ -142,15 +162,14 @@ class GameStateTransformer extends StateTransformer {
             // new seed while in the middle of the 'resetTransition' animation.
             setTimeout(() => {
                 this.caveGenerator = new CaveGenerator();
-                this.state.worm.position = this.getInitialWormPosition();
-                this.state.camera.position = this.getInitialWormPosition();
+                state.worm.position = this.getInitialWormPosition();
+                state.camera.position = this.getInitialWormPosition();
             }, 400);
 
             setTimeout(() => this.caveOpen.play(), 1000);
         } else if (event.name === 'resetTransition_finished') {
 
-            this.initState();
-            this.birthSound.play();
+            this.initGame();
         } else if (event.name === 'point_zone_entry') {
 
             state.timeOutOfZone = 0;
@@ -159,7 +178,7 @@ class GameStateTransformer extends StateTransformer {
                 state.inZone = true;
             }
             
-            if (!this.accelerationSound.playing() && !this.state.worm.dying) {
+            if (!this.accelerationSound.playing() && !state.worm.dying) {
                 this.accelerationSound.play();
             }
         } else if (event.name === 'point_zone_exit') {
@@ -171,55 +190,25 @@ class GameStateTransformer extends StateTransformer {
         }
     }
 
-    update(time, deltaTime) {
-        if (this.focused) {
-            this.assignEnvironmentalForces();
-
-            this.updateKinematics(deltaTime);
-
-            this.runEnvironmentalEventGenerators();
-
-            this.updateCaveGeometry();
-
-            this.updateWorm();
-
-            this.evolveAid.update(time, deltaTime);
-
-            this.state.time = time;
-
-            this.state.gameTime += deltaTime;
-
-            this.mapStateToUniforms(this.state);
-        }
-    }
-
     updateKinematics(deltaTime) {
-        const entities = [this.state.camera];
-
-        if (!this.state.worm.dying && !this.state.resetTransition);
-            entities.push(this.state.worm);
+        const entities = [this.state.worm];
 
         entities.forEach(entity => {
-            if (entity === this.state.camera) {
-                if (!this.state.worm.dying) {
-                    const target = this.state.worm.position.clone().add(new vec2(5, 0));
-                    entity.position.addScaledVector(target.sub(this.state.camera.position), 
-                                                    1 / 10);
-                }
-            } else {
-                const totalForce = new vec2();
+            if (!entity.ignoreKinematics()) {
+
+                const totalForce = TOTAL_FORCE_VEC.set(0, 0, 0);
                 entity.activeForces.forEach(force => {
                     totalForce.add(force);
                 });
 
-                const acceleration = new vec2(totalForce.x / entity.mass, totalForce.y / entity.mass);
+                const acceleration = ACCEL_VEC.set(totalForce.x / entity.mass, totalForce.y / entity.mass);
                 const velocity = entity.velocity;
 
                 velocity.addScaledVector(acceleration, deltaTime);
 
                 // Cap velocity
-                velocity.x = Math.min(Math.abs(velocity.x), Math.abs(entity.velocityCap.x)) * ((velocity.x + 1) / Math.abs(velocity.x + 1));
-                // velocity.y = Math.min(Math.abs(velocity.y), Math.abs(entity.velocityCap.y)) * ((velocity.y + 1) / Math.abs(velocity.y + 1));
+                velocity.x = Math.min(Math.abs(velocity.x), Math.abs(entity.velocityCap.x)) * Math.sign(velocity.x);
+                velocity.y = Math.min(Math.abs(velocity.y), Math.abs(entity.velocityCap.y)) * Math.sign(velocity.y);
 
                 entity.position.addScaledVector(velocity, deltaTime);
             }
@@ -228,12 +217,21 @@ class GameStateTransformer extends StateTransformer {
         });
     }
 
-    updateWorm() {
-        this.updateWormYHistory(this.state.worm.position);
+    updateCameraPosition() {
+        const camera = this.state.camera;
+        const worm = this.state.worm;
+
+        if (!worm.dying) {
+            const target = worm.position.clone();
+            target.x += 5;
+            camera.position.addScaledVector(target.sub(camera.position), 
+                                            1 / 10);
+        }
     }
 
-    updateWormYHistory(wormPos) {
+    updateWorm() {
         const state = this.state;
+        const wormPos = state.worm.position;
         const newYHistoryIndex = Math.floor(Util.toPixels(wormPos.x)) % Y_HISTORY_LENGTH;
 
         if (state.yHistoryIndex > newYHistoryIndex) {
@@ -263,12 +261,12 @@ class GameStateTransformer extends StateTransformer {
         // Weaken gravity and thrust for the first few seconds
         const introScale = Util.smoothstep(0, 2.5, this.state.gameTime);
 
-        worm.activeForces.push(new vec2(0, -gravityForceMagnitude * introScale));
+        worm.activeForces.push(GRAVITY_VEC.set(0, -gravityForceMagnitude * introScale));
 
-        worm.activeForces.push(new vec2(100, 0));
+        worm.activeForces.push(WORM_FORWARD_VEC.set(100, 0));
 
         if (this.state.keyStates.ArrowUp) {
-            worm.activeForces.push(new vec2(0, 1000 * introScale));         
+            worm.activeForces.push(WORM_UP_VEC.set(0, 1000 * introScale));         
         }
     }
 
@@ -511,8 +509,32 @@ class GameStateTransformer extends StateTransformer {
         });
     }
 
-    updatePointDisplay(state) {
-        document.getElementById('points').innerHTML = "" + Math.floor(state.points);
+    updatePointDisplay() {
+        document.getElementById('points').innerHTML = "" + Math.floor(this.state.points);
+    }
+
+    loadSounds() {
+        this.deathSound = new Howl({
+              src: ['sounds/exit.wav']
+            });
+        this.birthSound = new Howl({
+              src: ['sounds/link.wav']
+            });
+        this.caveShutSound = new Howl({
+              src: ['sounds/rock_breaking.flac']
+            });
+        this.accelerationSound = new Howl({
+              src: ['sounds/engine.wav'],
+              loop: true,
+            });
+        this.caveOpen = new Howl({
+              src: ['sounds/powerDrain.ogg'],
+            });
+    }
+
+    createCaveDataTextures() {
+        this.topHeightTex = this.getCaveDataTexture();
+        this.bottomHeightTex = this.getCaveDataTexture();
     }
 
     tearDown() {}
