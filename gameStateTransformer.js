@@ -9,6 +9,7 @@ const GameFragmentShader = require('./gameFragmentShader.js');
 
 const THREE = require('three');
 const vec2 = THREE.Vector2;
+const {Howl, Howler} = require('howler');
 
 const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 4;
@@ -20,12 +21,31 @@ class GameStateTransformer extends StateTransformer {
 
         this.caveGenerator = new CaveGenerator();
 
-        this.initState(false);
+        this.initState();
 
         this.setUpBrowserInputHandlers();
+
+        this.deathSound = new Howl({
+              src: ['sounds/exit.wav']
+            });
+        this.birthSound = new Howl({
+              src: ['sounds/link.wav']
+            });
+        this.caveShutSound = new Howl({
+              src: ['sounds/rock_breaking.flac']
+            });
+        this.accelerationSound = new Howl({
+              src: ['sounds/engine.wav'],
+              loop: true,
+            });
+        this.caveOpen = new Howl({
+              src: ['sounds/powerDrain.ogg'],
+            });
+
+        this.birthSound.play();
     }
 
-    initState(reset) {
+    initState() {
         const lastState = this.state;
 
         const state = {
@@ -64,8 +84,9 @@ class GameStateTransformer extends StateTransformer {
                                      evolve: (state, deltaTime) => {
                                         state.timeInZone += deltaTime;
                                         state.pointZoneIntensity = Math.min(state.pointZoneIntensity + deltaTime / 3, 1.);
-                                        state.points += deltaTime * Math.pow(state.timeInZone + 1, 2);
+                                        state.points += deltaTime * Math.pow(state.pointZoneIntensity*5 + 1, 2);
                                         this.updatePointDisplay(state);
+                                        this.accelerationSound.volume(state.pointZoneIntensity);
                                      }},
                                     {condition: (state) => !state.inZone,
                                      evolve: (state, deltaTime) => {
@@ -109,6 +130,11 @@ class GameStateTransformer extends StateTransformer {
             state.timeInZone = 0;
             this.evolveAid.runTransientState('worm.dying',
                            {position: event.data.wormPosition}, 1.5);
+
+            this.accelerationSound.stop();
+            this.deathSound.play();
+            setTimeout(() => this.caveShutSound.play(), 1150);
+
         } else if (event.name === 'worm.dying_finished') {
             this.evolveAid.runTransientState('resetTransition', {}, 1.5);
 
@@ -119,9 +145,12 @@ class GameStateTransformer extends StateTransformer {
                 this.state.worm.position = this.getInitialWormPosition();
                 this.state.camera.position = this.getInitialWormPosition();
             }, 400);
+
+            setTimeout(() => this.caveOpen.play(), 1000);
         } else if (event.name === 'resetTransition_finished') {
 
-            this.initState(true)
+            this.initState();
+            this.birthSound.play();
         } else if (event.name === 'point_zone_entry') {
 
             state.timeOutOfZone = 0;
@@ -129,11 +158,16 @@ class GameStateTransformer extends StateTransformer {
             if (!state.worm.dying) {
                 state.inZone = true;
             }
+            
+            if (!this.accelerationSound.playing() && !this.state.worm.dying) {
+                this.accelerationSound.play();
+            }
         } else if (event.name === 'point_zone_exit') {
 
             state.timeInZone = 0;
             state.timeOutOfZone = 0;
             state.inZone = false;
+            this.accelerationSound.pause();
         }
     }
 
@@ -454,9 +488,17 @@ class GameStateTransformer extends StateTransformer {
 
         canvas.addEventListener('keydown', (e) => {
             this.state.keyStates[e.key] = true;
+
+            if (e.key === 'ArrowUp') {
+                Events.enqueue("accel_start", {});
+            }
         });
         canvas.addEventListener('keyup', (e) => {
             this.state.keyStates[e.key] = false;
+
+            if (e.key === 'ArrowUp') {
+                Events.enqueue("accel_end", {});
+            }
         });
 
         this.focused = true;
