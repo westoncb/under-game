@@ -14,6 +14,7 @@ const {Howl, Howler} = require('howler');
 const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 4;
 const WORM_BLOCK_SPACING = 0.8;
+const BASE_POINTS_PER_SEC = 3;
 
 // These are constructed here for performance reasons.
 // Probably not actually worthwhile except maybe
@@ -67,9 +68,9 @@ class GameStateTransformer extends StateTransformer {
 
             this.evolveAid.update(time, deltaTime);
 
-            this.state.time = time;
+            this.updateGameState(deltaTime);
 
-            this.state.gameTime += deltaTime;
+            this.state.time = time;
 
             this.mapStateToUniforms(this.state);
         }
@@ -133,7 +134,6 @@ class GameStateTransformer extends StateTransformer {
                                         state.timeInZone += deltaTime;
                                         state.pointZoneIntensity = Math.min(state.pointZoneIntensity + deltaTime / 3, 1.);
                                         state.points += deltaTime * Math.pow(state.pointZoneIntensity*5 + 1, 2);
-                                        this.updatePointDisplay(state);
                                         this.accelerationSound.volume(state.pointZoneIntensity);
                                      }},
                                     {condition: (state) => !state.inZone,
@@ -144,6 +144,12 @@ class GameStateTransformer extends StateTransformer {
                                   ];
 
         this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
+    }
+
+    updateGameState(deltaTime) {
+        this.state.gameTime += deltaTime;
+        this.state.points += BASE_POINTS_PER_SEC * deltaTime;
+        this.updatePointDisplay();
     }
 
     handleEvent(event) {
