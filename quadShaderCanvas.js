@@ -3,33 +3,35 @@ const Stats = require('stats-js');
 const AppState = require('./appState.js');
 
 class QuadShaderCanvas {
-	constructor(containerElementId, fragmentShader, resizeCallback) {
+	constructor(containerElementId, fragmentShader, options = {}) {
 		this.containerElementId = containerElementId;
 		const containerElement = document.getElementById(this.containerElementId);
 
 		this.width = containerElement.offsetWidth;
 		this.height = containerElement.offsetHeight;
 
-		this.resizeCallback = resizeCallback;
+		this.resizeCallback = options.resizeHandler;
 
-		this.initThreeJS();
+		this.initThreeJS(options.showStats);
 		this.initScene(fragmentShader);
 
 		this.updateCanvasSize();
 	}
 
-	initThreeJS() {
+	initThreeJS(showStats) {
 	    this.renderer = new THREE.WebGLRenderer( { antialias: false } );
 	    this.renderer.setPixelRatio( window.devicePixelRatio );
 	    this.renderer.setSize( this.width, this.height );
 	    document.getElementById(this.containerElementId).appendChild( this.renderer.domElement );
 
-	    this.stats = new Stats();
-	    this.stats.setMode( 0 );
-	    this.stats.domElement.style.position = 'absolute';
-	    this.stats.domElement.style.left = '0px';
-	    this.stats.domElement.style.top = '0px';
-	    document.body.appendChild( this.stats.domElement );
+	    if (showStats) {
+	    	this.stats = new Stats();
+	    	this.stats.setMode( 0 );
+	    	this.stats.domElement.style.position = 'absolute';
+	    	this.stats.domElement.style.left = '0px';
+	    	this.stats.domElement.style.top = '0px';
+	    	document.body.appendChild( this.stats.domElement );
+	    }
 
 	    this.scene = new THREE.Scene();
 	    this.camera = new THREE.OrthographicCamera( this.width / - 2, this.width / 2, this.height / 2, this.height / - 2, 1, 2 );
@@ -68,11 +70,13 @@ class QuadShaderCanvas {
 	}
 
 	render() {
-	    this.stats.begin();
+	    if (this.stats)
+	    	this.stats.begin();
 
 	    this.renderer.render( this.scene, this.camera );
 
-	    this.stats.end();
+	    if (this.stats)
+	    	this.stats.end();
 	}
 
 	updateCanvasSize() {

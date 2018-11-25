@@ -30,7 +30,10 @@ const CAVE_BOTTOM_VEC = new vec2();
 
 class GameStateTransformer extends StateTransformer {
     setUp() {
-        this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText(), this.resizeOccurred.bind(this));
+        this.quadShaderCanvas = new QuadShaderCanvas('canvas-container',
+                                                     GameFragmentShader.getText(),
+                                                     {resizeHandler: this.resizeOccurred.bind(this),
+                                                      showStats: false});
 
         this.caveGenerator = new CaveGenerator();
 
@@ -40,15 +43,14 @@ class GameStateTransformer extends StateTransformer {
 
         this.createCaveDataTextures();
 
-        this.initGame();
+        this.reset();
     }
 
-    initGame() {
+    reset() {
         this.initState();
         this.initUniforms();
         this.initEvolveAid();
 
-        this.updatePointDisplay();
         this.birthSound.play();
     }
 
@@ -68,7 +70,7 @@ class GameStateTransformer extends StateTransformer {
 
             this.evolveAid.update(time, deltaTime);
 
-            this.updateGameState(deltaTime);
+            this.updateGame(deltaTime);
 
             this.state.time = time;
 
@@ -146,7 +148,7 @@ class GameStateTransformer extends StateTransformer {
         this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
     }
 
-    updateGameState(deltaTime) {
+    updateGame(deltaTime) {
         this.state.gameTime += deltaTime;
         this.state.points += BASE_POINTS_PER_SEC * deltaTime;
         this.updatePointDisplay();
@@ -180,7 +182,7 @@ class GameStateTransformer extends StateTransformer {
             setTimeout(() => this.caveOpen.play(), 1000);
         } else if (event.name === 'resetTransition_finished') {
 
-            this.initGame();
+            this.reset();
         } else if (event.name === 'point_zone_entry') {
 
             state.timeOutOfZone = 0;
@@ -262,7 +264,6 @@ class GameStateTransformer extends StateTransformer {
 
     assignEnvironmentalForces() {
         const worm = this.state.worm;
-        const camera = this.state.camera;
 
         const gravityConstant = 6.673e-11;
         const earthMass = 5.98e24;
