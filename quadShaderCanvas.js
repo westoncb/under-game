@@ -3,12 +3,14 @@ const Stats = require('stats-js');
 const AppState = require('./appState.js');
 
 class QuadShaderCanvas {
-	constructor(containerElementId, fragmentShader) {
+	constructor(containerElementId, fragmentShader, resizeCallback) {
 		this.containerElementId = containerElementId;
 		const containerElement = document.getElementById(this.containerElementId);
 
 		this.width = containerElement.offsetWidth;
 		this.height = containerElement.offsetHeight;
+
+		this.resizeCallback = resizeCallback;
 
 		this.initThreeJS();
 		this.initScene(fragmentShader);
@@ -87,6 +89,10 @@ class QuadShaderCanvas {
 	    this.uniforms.resolution.value.y = AppState.canvasHeight;
 
 	    this.uniforms.aspectRatio.value = this.width / this.height;
+
+	    if (this.resizeCallback) {
+	    	this.resizeCallback(AppState.canvasWidth, AppState.canvasHeight);
+	    }
 	}
 }
 

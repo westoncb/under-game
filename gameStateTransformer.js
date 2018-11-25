@@ -29,7 +29,7 @@ const CAVE_BOTTOM_VEC = new vec2();
 
 class GameStateTransformer extends StateTransformer {
     setUp() {
-        this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText());
+        this.quadShaderCanvas = new QuadShaderCanvas('canvas-container', GameFragmentShader.getText(), this.resizeOccurred.bind(this));
 
         this.caveGenerator = new CaveGenerator();
 
@@ -547,6 +547,10 @@ class GameStateTransformer extends StateTransformer {
     createCaveDataTextures() {
         this.topHeightTex = this.getCaveDataTexture();
         this.bottomHeightTex = this.getCaveDataTexture();
+    }
+
+    resizeOccurred(canvasWidth, canvasHeight) {
+        this.createCaveDataTextures();
     }
 
     tearDown() {}
