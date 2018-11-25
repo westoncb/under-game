@@ -15,12 +15,17 @@ const Y_HISTORY_LENGTH = 1000;
 const CAVE_SAMPLE_DIST = 4;
 const WORM_BLOCK_SPACING = 0.8;
 
-// These are constructed here for performance reasons
+// These are constructed here for performance reasons.
+// Probably not actually worthwhile except maybe
+// CAVE_TOP/BOTTOM_VEC.
 const GRAVITY_VEC = new vec2();
 const WORM_FORWARD_VEC = new vec2();
 const WORM_UP_VEC = new vec2();
 const TOTAL_FORCE_VEC = new vec2();
 const ACCEL_VEC = new vec2();
+const CAMERA_SHIFT_VEC = new vec2();
+const CAVE_TOP_VEC = new vec2();
+const CAVE_BOTTOM_VEC = new vec2();
 
 class GameStateTransformer extends StateTransformer {
     setUp() {
@@ -271,6 +276,7 @@ class GameStateTransformer extends StateTransformer {
     }
 
     updateCaveGeometry() {
+        const camPosInPixels = Util.toPixelsV(this.state.camera.position);
         const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
         const texelCount = AppState.canvasWidth / (CAVE_SAMPLE_DIST);
 
@@ -278,10 +284,10 @@ class GameStateTransformer extends StateTransformer {
             const xPixelInMeters = Util.toMeters(i*CAVE_SAMPLE_DIST + camX);
 
             const topY = this.caveGenerator.getTopSurfaceY(xPixelInMeters);
-            this.topHeightTex.image.data[i] = this.cameraTransform(new vec2(0, topY)).y;
+            this.topHeightTex.image.data[i] = this.cameraTransform(CAVE_TOP_VEC.set(0, topY), camPosInPixels).y;
 
             const bottomY = this.caveGenerator.getBottomSurfaceY(xPixelInMeters);
-            this.bottomHeightTex.image.data[i] = this.cameraTransform(new vec2(0, bottomY)).y;
+            this.bottomHeightTex.image.data[i] = this.cameraTransform(CAVE_BOTTOM_VEC.set(0, bottomY), camPosInPixels).y;
         }
 
         this.topHeightTex.needsUpdate = true;
@@ -293,7 +299,7 @@ class GameStateTransformer extends StateTransformer {
         const aspectRatio = AppState.canvasWidth / AppState.canvasHeight;
         const worm = state.worm;
 
-        const wormPos = this.cameraTransform(worm.position);
+        const wormPos = this.cameraTransform(worm.position.clone());
 
         const cameraPos = Util.toPixelsV(state.camera.position);
         cameraPos.x /= AppState.canvasWidth;
@@ -348,16 +354,22 @@ class GameStateTransformer extends StateTransformer {
         }
     }
 
-    cameraTransform(vec) {
-        const campPosInPixels = Util.toPixelsV(this.state.camera.position);
-        const camShift = new vec2(-campPosInPixels.x + AppState.canvasWidth/2,
-                                  -campPosInPixels.y + AppState.canvasHeight/2);
-        const newVec = Util.toPixelsV(vec).add(camShift);
-        newVec.x /= AppState.canvasWidth;
-        newVec.x *= (AppState.canvasWidth / AppState.canvasHeight);
-        newVec.y /= AppState.canvasHeight;
+    cameraTransform(vec, camPosInPixels) {
 
-        return newVec;
+        // `camPosInPixels` can be provided optionally
+        // for performance reasons        
+        if (!camPosInPixels) {
+            camPosInPixels = Util.toPixelsV(this.state.camera.position);
+        }
+
+        const camShift = CAMERA_SHIFT_VEC.set(-camPosInPixels.x + AppState.canvasWidth/2,
+                                              -camPosInPixels.y + AppState.canvasHeight/2);
+        const transformedVec = Util.toPixelsVModify(vec).add(camShift);
+        transformedVec.x /= AppState.canvasWidth;
+        transformedVec.x *= (AppState.canvasWidth / AppState.canvasHeight);
+        transformedVec.y /= AppState.canvasHeight;
+
+        return transformedVec;
     }   
 
     // Previous y position of worm head segment in pixels

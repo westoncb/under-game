@@ -101,6 +101,10 @@ class Util {
     return vec.clone().multiplyScalar(METERS_TO_PIXELS);
   }
 
+  static toPixelsVModify(vec) {
+    return vec.multiplyScalar(METERS_TO_PIXELS);
+  }
+
   static toMetersV(vec) {
     return vec.clone().multiplyScalar(1 / METERS_TO_PIXELS);
   }
