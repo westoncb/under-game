@@ -87,7 +87,7 @@ class GameStateTransformer extends StateTransformer {
                     mass: 40,
                     activeForces: [],
                     velocityCap: new vec2(6.5, 10),
-                    collisionBounds: {width: 0.4, height: 0.4},
+                    collisionBounds: {width: 0.4, height: 0.4}, // meters
                     }, 
             camera: {position: this.getInitialWormPosition()},
             keyStates: {}, // Keyboard keys
@@ -136,7 +136,6 @@ class GameStateTransformer extends StateTransformer {
                                         state.timeInZone += deltaTime;
                                         state.pointZoneIntensity = Math.min(state.pointZoneIntensity + deltaTime / 3, 1.);
                                         state.points += deltaTime * Math.pow(state.pointZoneIntensity*5 + 1, 2);
-                                        this.accelerationSound.volume(state.pointZoneIntensity);
                                      }},
                                     {condition: (state) => !state.inZone,
                                      evolve: (state, deltaTime) => {
@@ -149,9 +148,13 @@ class GameStateTransformer extends StateTransformer {
     }
 
     updateGame(deltaTime) {
-        this.state.gameTime += deltaTime;
-        this.state.points += BASE_POINTS_PER_SEC * deltaTime;
-        this.updatePointDisplay();
+        const state = this.state;
+
+        state.gameTime += deltaTime;
+        state.points += BASE_POINTS_PER_SEC * deltaTime;
+
+        // This is more of a 'view' thing—not sure the best place for it
+        this.accelerationSound.volume(state.pointZoneIntensity);
     }
 
     handleEvent(event) {
@@ -199,7 +202,6 @@ class GameStateTransformer extends StateTransformer {
             state.timeInZone = 0;
             state.timeOutOfZone = 0;
             state.inZone = false;
-            this.accelerationSound.pause();
         }
     }
 
@@ -472,6 +474,8 @@ class GameStateTransformer extends StateTransformer {
         if (this.focused) {
             this.quadShaderCanvas.render();
         }
+
+        this.updatePointDisplay();
     }
 
     getCaveDataTexture() {
@@ -543,7 +547,7 @@ class GameStateTransformer extends StateTransformer {
               src: ['sounds/rock_breaking.flac']
             });
         this.accelerationSound = new Howl({
-              src: ['sounds/engine.wav'],
+              src: ['sounds/electricguitar.mp3'],
               loop: true,
             });
         this.caveOpen = new Howl({
