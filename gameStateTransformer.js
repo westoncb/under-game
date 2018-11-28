@@ -535,18 +535,22 @@ class GameStateTransformer extends StateTransformer {
 
         canvas.addEventListener('keydown', (e) => {
             this.state.keyStates[e.key] = true;
-
-            if (e.key === 'ArrowUp') {
-                Events.enqueue("accel_start", {});
-            }
         });
         canvas.addEventListener('keyup', (e) => {
             this.state.keyStates[e.key] = false;
-
-            if (e.key === 'ArrowUp') {
-                Events.enqueue("accel_end", {});
-            }
         });
+
+        // This is to get it working on mobile.
+        // It's not actually playable though, at
+        // least on my phone :/
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            this.state.keyStates['ArrowUp'] = true;
+        }, false);
+        canvas.addEventListener("touchend", (e) => {
+            e.preventDefault();
+            this.state.keyStates['ArrowUp'] = false;
+        }, false);
 
         this.focused = true;
 
