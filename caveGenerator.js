@@ -23,6 +23,8 @@ const MAX_APERTURE = 8.5;
 	out where the main surfaces of the top and bottom of the cave are. Then
 	we add noise on top of this otherwise smooth surface.
 
+	This deals exclusively in meters (i.e. not in pixels).
+
 	TODO: It would probably improve the generated caves to also explicitly
 	control: min/maxFlatLength, min/maxSlantLength, min/maxSlope
 	and use those params in generateJuncture(...). They could vary by X in

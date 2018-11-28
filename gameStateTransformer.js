@@ -33,6 +33,8 @@ const CAVE_BOTTOM_VEC = new vec2();
     This works mostly by making modifications to the 'state' object, and
     then rendering key parts of that state via a fragment shader. The
     mapping of state to rendering data takes place in mapStateToUniforms(...).
+
+    The units used internally here are meters.
 */
 
 class GameStateTransformer extends StateTransformer {
