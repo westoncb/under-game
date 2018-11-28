@@ -161,10 +161,13 @@ class GameStateTransformer extends StateTransformer {
         const state = this.state;
 
         state.gameTime += deltaTime;
-        state.points += BASE_POINTS_PER_SEC * deltaTime;
+        
+        if (!state.worm.dying) {
+            state.points += BASE_POINTS_PER_SEC * deltaTime;
+        }
 
         // This is more of a 'view' thing—not sure the best place for it...
-        this.accelerationSound.volume(state.pointZoneIntensity);
+        this.pointZoneSound.volume(state.pointZoneIntensity);
     }
 
     handleEvent(event) {
@@ -177,7 +180,7 @@ class GameStateTransformer extends StateTransformer {
             this.evolveAid.runTransientState('worm.dying',
                            {position: event.data.wormPosition}, 1.5);
 
-            this.accelerationSound.stop();
+            this.pointZoneSound.stop();
             this.deathSound.play();
             setTimeout(() => this.caveShutSound.play(), 1150);
 
@@ -192,7 +195,7 @@ class GameStateTransformer extends StateTransformer {
                 state.camera.position = this.getInitialWormPosition();
             }, 400);
 
-            setTimeout(() => this.caveOpen.play(), 1000);
+            setTimeout(() => this.caveOpenSound.play(), 1000);
         } else if (event.name === 'resetTransition_finished') {
 
             this.reset();
@@ -204,8 +207,8 @@ class GameStateTransformer extends StateTransformer {
                 state.inZone = true;
             }
             
-            if (!this.accelerationSound.playing() && !state.worm.dying) {
-                this.accelerationSound.play();
+            if (!this.pointZoneSound.playing() && !state.worm.dying) {
+                this.pointZoneSound.play();
             }
         } else if (event.name === 'point_zone_exit') {
 
@@ -568,20 +571,20 @@ class GameStateTransformer extends StateTransformer {
 
     loadSounds() {
         this.deathSound = new Howl({
-              src: ['sounds/exit.wav']
+              src: ['sounds/exit.mp3']
             });
         this.birthSound = new Howl({
-              src: ['sounds/link.wav']
+              src: ['sounds/link.mp3']
             });
         this.caveShutSound = new Howl({
-              src: ['sounds/rock_breaking.flac']
+              src: ['sounds/thunder.mp3']
             });
-        this.accelerationSound = new Howl({
-              src: ['sounds/electricguitar.mp3'],
+        this.pointZoneSound = new Howl({
+              src: ['sounds/ufo.mp3'],
               loop: true,
             });
-        this.caveOpen = new Howl({
-              src: ['sounds/powerDrain.ogg'],
+        this.caveOpenSound = new Howl({
+              src: ['sounds/powerdrain.mp3'],
             });
     }
 
