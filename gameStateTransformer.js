@@ -11,7 +11,7 @@ const THREE = require('three');
 const vec2 = THREE.Vector2;
 const {Howl, Howler} = require('howler');
 
-const Y_HISTORY_LENGTH = 1000;
+const Y_HISTORY_LENGTH = 5000;
 const CAVE_SAMPLE_DIST = 4;
 const WORM_BLOCK_SPACING = 0.8;
 const BASE_POINTS_PER_SEC = 3;
@@ -76,7 +76,7 @@ class GameStateTransformer extends StateTransformer {
 
             this.updateCaveGeometry();
 
-            this.updateWorm();
+            this.updateWormHistory();
 
             this.evolveAid.update(time, deltaTime);
 
@@ -258,20 +258,20 @@ class GameStateTransformer extends StateTransformer {
 
     // All the worm segments aside from the 'head' segment exactly follow
     // the Y-positions which the head passed through.
-    updateWorm() {
+    updateWormHistory() {
         const state = this.state;
         const wormPos = state.worm.position;
         const newYHistoryIndex = Math.floor(Util.toPixels(wormPos.x)) % Y_HISTORY_LENGTH;
 
         if (state.yHistoryIndex > newYHistoryIndex) {
-            for (let i = state.yHistoryIndex; i < state.wormYHistory.length; i++) {
+            for (let i = state.yHistoryIndex+1; i < Y_HISTORY_LENGTH; i++) {
                 state.wormYHistory[i] = wormPos.y;
             }
             for (let i = 0; i <= newYHistoryIndex; i++) {
                 state.wormYHistory[i] = wormPos.y;
             }
         } else {
-            for (let i = state.yHistoryIndex; i <= newYHistoryIndex; i++) {
+            for (let i = state.yHistoryIndex+1; i <= newYHistoryIndex; i++) {
                 state.wormYHistory[i] = wormPos.y;
             }
         }
