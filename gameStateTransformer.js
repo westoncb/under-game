@@ -28,19 +28,27 @@ const CAMERA_SHIFT_VEC = new vec2();
 const CAVE_TOP_VEC = new vec2();
 const CAVE_BOTTOM_VEC = new vec2();
 
+/*
+    This is where all the gameplay logic and input handling takes places.
+    This works mostly by making modifications to the 'state' object, and
+    then rendering key parts of that state via a fragment shader. The
+    mapping of state to rendering data takes place in mapStateToUniforms(...).
+*/
+
 class GameStateTransformer extends StateTransformer {
     setUp() {
         this.quadShaderCanvas = new QuadShaderCanvas('canvas-container',
                                                      GameFragmentShader.getText(),
                                                      {resizeHandler: this.resizeOccurred.bind(this),
                                                       showStats: false});
-
         this.caveGenerator = new CaveGenerator();
 
         this.setUpBrowserInputHandlers();
 
         this.loadSounds();
 
+        // We communicate the cave shape to the fragment shader
+        // via two 1d textures created here.
         this.createCaveDataTextures();
 
         this.reset();
@@ -153,7 +161,7 @@ class GameStateTransformer extends StateTransformer {
         state.gameTime += deltaTime;
         state.points += BASE_POINTS_PER_SEC * deltaTime;
 
-        // This is more of a 'view' thing—not sure the best place for it
+        // This is more of a 'view' thing—not sure the best place for it...
         this.accelerationSound.volume(state.pointZoneIntensity);
     }
 
@@ -206,6 +214,8 @@ class GameStateTransformer extends StateTransformer {
     }
 
     updateKinematics(deltaTime) {
+
+        // The initial plan involved a lot more kinematical objects...
         const entities = [this.state.worm];
 
         entities.forEach(entity => {
@@ -244,6 +254,8 @@ class GameStateTransformer extends StateTransformer {
         }
     }
 
+    // All the worm segments aside from the 'head' segment exactly follow
+    // the Y-positions which the head passed through.
     updateWorm() {
         const state = this.state;
         const wormPos = state.worm.position;
@@ -275,15 +287,23 @@ class GameStateTransformer extends StateTransformer {
         // Weaken gravity and thrust for the first few seconds
         const introScale = Util.smoothstep(0, 2.5, this.state.gameTime);
 
+        // Gravity
         worm.activeForces.push(GRAVITY_VEC.set(0, -gravityForceMagnitude * introScale));
 
+        // Worm forward thrust
         worm.activeForces.push(WORM_FORWARD_VEC.set(100, 0));
 
+        // Worm upward thrust
         if (this.state.keyStates.ArrowUp) {
             worm.activeForces.push(WORM_UP_VEC.set(0, 1000 * introScale));         
         }
     }
 
+    /*
+        Read the cave edge heights from the CaveGenerator for every currently
+        visible pixel on the screen. Write those heights to 1d texures to
+        pass to the fragment shader.
+    */
     updateCaveGeometry() {
         const camPosInPixels = Util.toPixelsV(this.state.camera.position);
         const camX = Math.floor(Util.toPixels(this.state.camera.position.x)) - Math.floor(AppState.canvasWidth / 2);
@@ -303,6 +323,10 @@ class GameStateTransformer extends StateTransformer {
         this.bottomHeightTex.needsUpdate = true;
     }
 
+    /*
+        Map the game state to variables passed into the fragment
+        shader for rendering.
+    */
     mapStateToUniforms(state) {
         const uniforms = this.quadShaderCanvas.uniforms;
         const aspectRatio = AppState.canvasWidth / AppState.canvasHeight;
@@ -381,7 +405,7 @@ class GameStateTransformer extends StateTransformer {
         return transformedVec;
     }   
 
-    // Previous y position of worm head segment in pixels
+    // Previous y position of worm head segment center in pixels
     getPastWormY(x) {
         const i = Math.floor(Util.toPixels(x)) % Y_HISTORY_LENGTH;
         const y = this.state.wormYHistory[i];

@@ -1,6 +1,14 @@
 const StateTransformer = require('./StateTransformer.js');
 const Events = require('./events.js');
 
+/*
+	This Simulation StateTransformer is always running and just
+	manages other StateTransformers. It's responsible for swapping
+	StateTransformers in response to 'change_transformer' events
+	and calling the framework methods (e.g. update(...)/handleEvent(...))
+	on the current StateTransformer.
+*/
+
 class Simulation extends StateTransformer {
 	constructor() {
 		super();

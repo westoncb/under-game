@@ -164,7 +164,8 @@ class GameFragmentShader {
 				glow += -glow * cavePatternDeathRebirthRatio;
 
 				float resetScrollBack = smoothstep(0., 0.5, resetTransitionRatio) * cameraPos.x;
-				float noise1 = fractalNoise(p + vec2(cameraPos.x / aspectRatio * 1.08 - resetScrollBack, cameraPos.y)) * 3.5;
+				float animationFactor = 1.08;
+				float noise1 = fractalNoise(p + vec2(cameraPos.x / aspectRatio * animationFactor - resetScrollBack, cameraPos.y)) * 3.5;
 				float steppedNoise = noise1 * (1. - smoothstep(0., .04, negDist));
 
 				// Fade out noise glow during death
@@ -172,6 +173,9 @@ class GameFragmentShader {
 
 				float deathAnimScale = (1. - cavePatternDeathRebirthRatio / 2.5);
 				float distWithNoise = negDist + noise1 * deathAnimScale;
+
+				// This is the main thing responsible for the cool fractal thing
+				// decorating the cave
 				float noise2 = noise(vec2(0., pModInterval1(distWithNoise, 0.05, 0., 13.))) / 4.;
 
 				float r = 0.4 - (glow * 0.2) + noise2 * 0.5;

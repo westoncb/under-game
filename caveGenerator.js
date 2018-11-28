@@ -6,9 +6,32 @@ const THREE = require('three');
 const MIN_APERTURE = 4; // meters;
 const MAX_APERTURE = 8.5;
 
+/*
+	Used to generate the shape of the cave edges in the game, both for 
+	collision detection and rendering. It does this by providing two
+	functions meant to be used externally: 
+
+	getTopSurfaceY(x) and getBottomSurfaceY(x)
+
+	The idea is that for any X coordinate you pass in, it can give you the Y
+	values of both the top and bottom of the cave at that location.
+
+	The main algorithm is to generate a line running through the middle of
+	the cave that has sloped and flat segments with random lengths. The
+	points seperating these sections are called 'junctures'. Once we have
+	a point on that line, we use the current 'aperture' size to figure
+	out where the main surfaces of the top and bottom of the cave are. Then
+	we add noise on top of this otherwise smooth surface.
+
+	TODO: It would probably improve the generated caves to also explicitly
+	control: min/maxFlatLength, min/maxSlantLength, min/maxSlope
+	and use those params in generateJuncture(...). They could vary by X in
+	a similar manner to getApertureHeight(x).
+*/
+
 class CaveGenerator {
 	constructor() {
-		this.junctures = [new THREE.Vector2(-100, 5), new THREE.Vector2(100, 5)]; //(x,y) points each time path slope changes
+		this.junctures = [new THREE.Vector2(-100, 5), new THREE.Vector2(100, 5)];
 		Util.newNoiseSeed();
 	}
 
@@ -29,17 +52,12 @@ class CaveGenerator {
 	}
 
 	getApertureHeight(x) {
-		// could event just be linear if we wanted to be simple
-
 		const repeatDist = 100;
 		const scaledX = x / (repeatDist / Math.PI);
 		const noise = Util.noise1d(x / 5) * 2;
 		const ratio = Util.smoothstep(0, repeatDist, (Math.sin(scaledX) + 1) / 2 * repeatDist * noise);
 		return ((1 - ratio)*MAX_APERTURE + ratio*MIN_APERTURE);
 	}
-
-	// These might also need to be functions of x like getApertureHeight(x)
-	// minFlatLength, maxFlatLength, minSlantLength, maxSlantLength, minSlope, maxSlope
 	
 	getPathY(x) {
 		const result = this.getPriorJunctureAndIndex(x);

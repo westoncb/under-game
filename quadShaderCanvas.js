@@ -2,7 +2,18 @@ const THREE = require('three');
 const Stats = require('stats-js');
 const AppState = require('./appState.js');
 
+/*
+	This takes care of all the essentially boilerplate to draw on a full-canvas
+	quad with a fragment shader. Does the three.js mesh/material and camera setup,
+	places the three.js canvas into some designated element, handles resizing.
+*/
+
 class QuadShaderCanvas {
+
+	/*
+		containerElementId: id of a dom element which the three.js canvas should be fit to.
+		fragmentShader: string containing the text of a fragment shader.
+	*/
 	constructor(containerElementId, fragmentShader, options = {}) {
 		this.containerElementId = containerElementId;
 		const containerElement = document.getElementById(this.containerElementId);
