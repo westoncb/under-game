@@ -44,9 +44,15 @@ class CaveGenerator {
 	}
 
 	noise(x) {
-		return (Util.noise1d(x / 3) ** 2 * 4) * Util.mix(0.65, 1.2, Util.smoothstep(MIN_APERTURE, MAX_APERTURE, this.getApertureHeight(x)))
-		       + Util.noise1d(x * 2.) / 2.5
-		       + Util.noise1d(x * 8.) / 7.;
+		// If we don't phase in the noise, it's possible for it to overlap
+		// the player's initial position.
+		const introScale = Util.smoothstep(0, Util.toMeters(AppState.canvasWidth), x);
+
+		const noise = (Util.noise1d(x / 3) ** 2 * 4) * Util.mix(0.65, 1.2, Util.smoothstep(MIN_APERTURE, MAX_APERTURE, this.getApertureHeight(x)))
+			       + Util.noise1d(x * 2.) / 2.5
+			       + Util.noise1d(x * 8.) / 7.;	
+		
+		return noise * introScale;
 	}
 
 	getBottomSurfaceY(x) {
