@@ -6,3 +6,25 @@
 canvas {
 	border: 3px solid black;
 }
+
+#canvas-container {
+	width: 80%;
+	height: 600px;
+	position: absolute;
+	margin: auto;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	padding: 0;
+}
+
+#points {
+	position: absolute;
+	left: 20px;
+	top: 10px;
+	color: white;
+	font-size: 50px;
+	opacity: 0.65;
+	font-family: 'Exo', sans-serif;
+}
