@@ -38,7 +38,12 @@ const CAVE_BOTTOM_VEC = new vec2();
 */
 
 class GameStateTransformer extends StateTransformer {
+
+    // Called by Simulation
     setUp() {
+
+        // This is a utility for setting up a full-canvas quad with
+        // a shader material applied to it
         this.quadShaderCanvas = new QuadShaderCanvas('canvas-container',
                                                      GameFragmentShader.getText(),
                                                      {resizeHandler: this.resizeOccurred.bind(this),
@@ -64,6 +69,7 @@ class GameStateTransformer extends StateTransformer {
         this.birthSound.play();
     }
 
+    // Called by Simulation
     update(time, deltaTime) {
         if (this.focused) {
             this.assignEnvironmentalForces();
@@ -136,10 +142,7 @@ class GameStateTransformer extends StateTransformer {
     }
 
     initEvolveAid() {
-        // Takes objects with two properties: 'condition' and 'evolve', both of which
-        // should be functions. 'condition' is passed the current state and returns
-        // a boolean indicataing whether 'evolve' should be executed each frame.
-        // 'evolve' is passed the current state and deltaTime.
+        // See evolveAid.js for more info on how these work
         this.contingentEvolvers = [
                                     {condition: (state) => state.inZone,
                                      evolve: (state, deltaTime) => {
@@ -170,6 +173,7 @@ class GameStateTransformer extends StateTransformer {
         this.pointZoneSound.volume(state.pointZoneIntensity);
     }
 
+    // Called by Simulation
     handleEvent(event) {
         const state = this.state;
 
@@ -499,6 +503,7 @@ class GameStateTransformer extends StateTransformer {
         return Util.mix(1.5, 2.5, Util.smoothstep(0., 3, timeInZone));
     }
 
+    // Called by Simulation
     render() {
         if (this.focused) {
             this.quadShaderCanvas.render();
@@ -593,10 +598,12 @@ class GameStateTransformer extends StateTransformer {
         this.bottomHeightTex = this.getCaveDataTexture();
     }
 
+    // Called by QuadShaderCanvas
     resizeOccurred(canvasWidth, canvasHeight) {
         this.createCaveDataTextures();
     }
 
+    // Called by Simulation
     tearDown() {}
 }
 
