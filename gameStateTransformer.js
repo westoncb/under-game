@@ -8,7 +8,7 @@ const EvolveAid = require('./evolveAid.js');
 const GameFragmentShader = require('./gameFragmentShader.js');
 
 const THREE = require('three');
-const vec2 = THREE.Vector2;
+const Vector2 = THREE.Vector2;
 const {Howl, Howler} = require('howler');
 
 const Y_HISTORY_LENGTH = 5000;
@@ -19,14 +19,14 @@ const BASE_POINTS_PER_SEC = 3;
 // These are constructed here for performance reasons.
 // Probably not actually worthwhile except maybe
 // CAVE_TOP/BOTTOM_VEC.
-const GRAVITY_VEC = new vec2();
-const WORM_FORWARD_VEC = new vec2();
-const WORM_UP_VEC = new vec2();
-const TOTAL_FORCE_VEC = new vec2();
-const ACCEL_VEC = new vec2();
-const CAMERA_SHIFT_VEC = new vec2();
-const CAVE_TOP_VEC = new vec2();
-const CAVE_BOTTOM_VEC = new vec2();
+const GRAVITY_VEC = new Vector2();
+const WORM_FORWARD_VEC = new Vector2();
+const WORM_UP_VEC = new Vector2();
+const TOTAL_FORCE_VEC = new Vector2();
+const ACCEL_VEC = new Vector2();
+const CAMERA_SHIFT_VEC = new Vector2();
+const CAVE_TOP_VEC = new Vector2();
+const CAVE_BOTTOM_VEC = new Vector2();
 
 /*
     This is where all the gameplay logic and input handling takes places.
@@ -98,11 +98,11 @@ class GameStateTransformer extends StateTransformer {
         const state = {
             time: 0,
             worm: { position: this.getInitialWormPosition(),
-                    velocity: new vec2(),
+                    velocity: new Vector2(),
                     rotation: 0,
                     mass: 40,
                     activeForces: [],
-                    velocityCap: new vec2(6.5, 10),
+                    velocityCap: new Vector2(6.5, 10),
                     collisionBounds: {width: 0.4, height: 0.4}, // meters
                     }, 
             camera: {position: this.getInitialWormPosition()},
@@ -498,8 +498,8 @@ class GameStateTransformer extends StateTransformer {
         for (let i = 0; i < samples; i++) {
             const wormSampleX = startX + increment * i;
 
-            points.push(new vec2(wormSampleX, wormTopY));
-            points.push(new vec2(wormSampleX, wormBottomY));
+            points.push(new Vector2(wormSampleX, wormTopY));
+            points.push(new Vector2(wormSampleX, wormBottomY));
         }
 
         return points;
@@ -538,7 +538,7 @@ class GameStateTransformer extends StateTransformer {
         const x = Util.toMeters(AppState.canvasWidth * 0.1);
         const y = (this.caveGenerator.getTopSurfaceY(x) + this.caveGenerator.getBottomSurfaceY(x)) / 2;
 
-        return new vec2(x, y);
+        return new Vector2(x, y);
     }
 
     setUpBrowserInputHandlers() {
