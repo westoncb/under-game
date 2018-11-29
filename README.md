@@ -1,9 +1,9 @@
 # Under
-Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions in a fragment shader. The codebase is small and fairly well-documented.
+Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions. The codebase is small and fairly well-documented.
 
 [Play here!](http://symbolflux.com/under) 
 
-_Controls_: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
+**Controls**: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
 
 ![](screen.png)
 
@@ -19,6 +19,8 @@ The pure fun part was largely that I already knew pretty clearly how to make the
 The architecture experiment concept is summed up in something I tweeted the other day:
 
 *How about an architecture like a discrete dynamical system driven by events instead of time, where the state evolution and event generation logic changes according to a quasi-FSM where nodes are defined by boolean functions (of system state) instead of explicit graph structure?*
+
+(Note: my conception was only clear enough to describe it that way after mostly completing this project. What you'll find in the code here isn't quite so neat.)
 
 I was reading about about 'simulating the physical world' via Jamie Wong's [excellent article](http://jamie-wong.com/post/simulating-the-physical-world/) and then started thinking about how 'normal' apps are different, and whether they could benefit by sharing some ideas. It seemed to me that Redux for instance must have been inspired by thinking along these lines (no idea if that's true), and that the general notion of 'operation' has a strong resemblance to differentials in a numerical integration process.
 
@@ -42,10 +44,10 @@ There are a few framework-ey classes which are the primary components of the 'ar
 - [Events](https://github.com/westoncb/under-game/blob/master/events.js)
 - [EvolveAid](https://github.com/westoncb/under-game/blob/master/evolveAid.js)
 
-**StateTransformer** is the core structure of the framework. The idea is that programs would be defined as a set of StateTransformers (potentially arranged in a hierarchy, but no use of that is made here—in fact this program only uses one real StateTransformer). And Each StateTransformer defines logic for transforming some state in response to a sequence of events and/or time passage. It will also likely _generate_ its own events when certain conditions are met, or in response to system input events. As an example, GameStateTransformer generate an event when the worm collides with the cave wall.
+**StateTransformer** is the core structure of the framework. The idea is that programs would be defined as a set of StateTransformers (potentially arranged in a hierarchy, but no use of that is made here—in fact this program only uses one real StateTransformer). And Each StateTransformer defines logic for transforming some state in response to a sequence of events and/or time passage. It will also likely _generate_ its own events when certain conditions are met, or in response to system input events. As an example, GameStateTransformer generates an event when the worm collides with the cave wall.
 
 **Simulation** is a special StateTransformer which does the actual work of triggering the methods defined by StateTransformers at the correct times. It is always active and manages some actual StateTransformer.
 
-**Events** is a simple queue. Events may be added to it like `Events.enqueue('event_name', {data});`. Every frame/step while the app is running Simulation will remove events from the queue one at a time, passing them to the current StateTransformer via a call like `activeStateTransformer.handleEvent(event)`.
+**Events** is a simple queue. Events may be added to it like `Events.enqueue('event_name', eventData);`. Every frame/step while the app is running Simulation will remove events from the queue one at a time, passing them to the current StateTransformer via a call to `activeStateTransformer.handleEvent(event);`.
 
-**EvolveAid** EvolveAid provides some conveniences for StateTransformers. Check out the documentation in the file for more info.
+**EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info.
