@@ -142,7 +142,9 @@ class GameStateTransformer extends StateTransformer {
     }
 
     initEvolveAid() {
-        // See evolveAid.js for more info on how these work
+        // See evolveAid.js for more info on how these work.
+        // Also, yes, the way I'm actually using them at the
+        // moment is basically pointless—but imagine!
         this.contingentEvolvers = [
                                     {condition: (state) => state.inZone,
                                      evolve: (state, deltaTime) => {
@@ -293,7 +295,7 @@ class GameStateTransformer extends StateTransformer {
         const earthRadius = 6.38e6;
         const gravityForceMagnitude = (gravityConstant * earthMass * worm.mass) / 6.38e6 ** 2;
 
-        // Weaken gravity and thrust for the first few seconds
+        // Weaken gravity and upward thrust for the first few seconds
         const introScale = Util.smoothstep(0, 2.5, this.state.gameTime);
 
         // Gravity
@@ -479,6 +481,10 @@ class GameStateTransformer extends StateTransformer {
         }
     }
 
+    /*
+        Grabs some points along the top and bottom surface of
+        the worm head to use in collision testing.
+    */
     getWormCollisionTestPoints(worm) {
         const bounds = worm.collisionBounds;
         const wormTopY = worm.position.y + bounds.height / 2;
