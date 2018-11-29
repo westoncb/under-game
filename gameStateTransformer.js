@@ -581,22 +581,47 @@ class GameStateTransformer extends StateTransformer {
     }
 
     loadSounds() {
-        this.deathSound = new Howl({
-              src: ['sounds/exit.mp3']
-            });
-        this.birthSound = new Howl({
-              src: ['sounds/link.mp3']
-            });
-        this.caveShutSound = new Howl({
-              src: ['sounds/thunder.mp3']
-            });
-        this.pointZoneSound = new Howl({
-              src: ['sounds/ufo.mp3'],
-              loop: true,
-            });
-        this.caveOpenSound = new Howl({
-              src: ['sounds/powerdrain.mp3'],
-            });
+
+        // Probably not the best way of doing this, but it works...
+        if (window.location.hostname === 'symbolflux.com' ||
+            window.location.hostname === 'westoncb.com') {
+
+            this.deathSound = new Howl({
+                  src: ['https://s3.amazonaws.com/undergame-media/exit.mp3']
+                });
+            this.birthSound = new Howl({
+                  src: ['https://s3.amazonaws.com/undergame-media/link.mp3']
+                });
+            this.caveShutSound = new Howl({
+                  src: ['https://s3.amazonaws.com/undergame-media/thunder.mp3']
+                });
+            this.pointZoneSound = new Howl({
+                  src: ['https://s3.amazonaws.com/undergame-media/ufo.mp3'],
+                  loop: true,
+                });
+            this.caveOpenSound = new Howl({
+                  src: ['https://s3.amazonaws.com/undergame-media/powerdrain.mp3'],
+                });
+        
+        } else { // Running locally
+
+            this.deathSound = new Howl({
+                  src: ['sounds/exit.mp3']
+                });
+            this.birthSound = new Howl({
+                  src: ['sounds/link.mp3']
+                });
+            this.caveShutSound = new Howl({
+                  src: ['sounds/thunder.mp3']
+                });
+            this.pointZoneSound = new Howl({
+                  src: ['sounds/ufo.mp3'],
+                  loop: true,
+                });
+            this.caveOpenSound = new Howl({
+                  src: ['sounds/powerdrain.mp3'],
+                });
+        }
     }
 
     createCaveDataTextures() {
