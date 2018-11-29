@@ -35,6 +35,8 @@ It uses [quadShaderCanvas.js](https://github.com/westoncb/under-game/blob/master
 
 The fragment shader is in [gameFragmentShader.js](https://github.com/westoncb/under-game/blob/master/gameFragmentShader.js). I've written a few of these now, but I'm still no pro. Expect some rookie mistakes. And I'd be glad for some optimization tips if anyone notices some easy changes that could be made...
 
+The cave shape generation is done in [caveGenerator.js](https://github.com/westoncb/under-game/blob/master/caveGenerator.js)
+
 The entry point to the code is in [index.js](https://github.com/westoncb/under-game/blob/master/index.js). It sets up the main update/render loop and initializes a Simulation object, telling it to use a GameStateTransformer.
 
 There are a few framework-ey classes which are the primary components of the 'architecture experiment' described above. They are:
