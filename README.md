@@ -1,7 +1,8 @@
 # Under
-Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions (though I don't use raymarching, or any kind of lighting/shading system). The codebase is small and fairly well-documented.
+Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise, signed distance functions, and [boolean/space-folding operators](http://mercury.sexy/hg_sdf/) applied to those functions. The codebase is small and fairly well-documented.
 
-[Play here!](http://symbolflux.com/under) 
+- [Play here!](http://symbolflux.com/under) 
+- [Youtube video](https://youtu.be/Q010AFPItqY)
 
 **Controls**: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
 
@@ -30,22 +31,22 @@ The other aspect of the architecture experiment was to attempt a pragmatic balan
 I had an overall positive experience with the architecture. There are still some kinks to work out, but my plan is to extract a super minimal library/framework from it to use in future projects. I partly want that for doing more games—but I'm also curious how it would extend to domains outside of games.
 
 ## Code Overview
-If you want to get to the meat of how the game itself works, it's all in [gameStateTransformer.js](https://github.com/westoncb/under-game/blob/master/gameStateTransformer.js)
+If you want to get to the meat of how the game itself works, it's all in [gameStateTransformer.js](https://github.com/westoncb/under-game/blob/master/js/gameStateTransformer.js)
 
-It uses [quadShaderCanvas.js](https://github.com/westoncb/under-game/blob/master/quadShaderCanvas.js) to set up three.js with a single rectangular Mesh using a ShaderMaterial, which is fit exactly to the canvas dimensions. All of the visuals are created by a fragment shader applied to that Mesh surface.
+It uses [quadShaderCanvas.js](https://github.com/westoncb/under-game/blob/master/js/quadShaderCanvas.js) to set up three.js with a single rectangular Mesh using a ShaderMaterial, which is fit exactly to the canvas dimensions. All of the visuals are created by a fragment shader applied to that Mesh surface.
 
-The fragment shader is in [gameFragmentShader.js](https://github.com/westoncb/under-game/blob/master/gameFragmentShader.js). I've written a few of these now, but I'm still no pro. Expect some rookie mistakes. And I'd be glad for some optimization tips if anyone notices some easy changes that could be made...
+The fragment shader is in [gameFragmentShader.js](https://github.com/westoncb/under-game/blob/master/js/gameFragmentShader.js). I've written a few of these now, but I'm still no pro. Expect some rookie mistakes. And I'd be glad for some optimization tips if anyone notices some easy changes that could be made...
 
-The cave shape generation is done in [caveGenerator.js](https://github.com/westoncb/under-game/blob/master/caveGenerator.js)
+The cave shape generation is done in [caveGenerator.js](https://github.com/westoncb/under-game/blob/master/js/caveGenerator.js)
 
-The entry point to the code is in [index.js](https://github.com/westoncb/under-game/blob/master/index.js). It sets up the main update/render loop and initializes a Simulation object, telling it to use a GameStateTransformer.
+The entry point to the code is in [index.js](https://github.com/westoncb/under-game/blob/master/js/index.js). It sets up the main update/render loop and initializes a Simulation object, telling it to use a GameStateTransformer.
 
 There are a few framework-ey classes which are the primary components of the 'architecture experiment' described above. They are:
 
-- [StateTransformer](https://github.com/westoncb/under-game/blob/master/stateTransformer.js)
-- [Simulation](https://github.com/westoncb/under-game/blob/master/simulation.js)
-- [Events](https://github.com/westoncb/under-game/blob/master/events.js)
-- [EvolveAid](https://github.com/westoncb/under-game/blob/master/evolveAid.js)
+- [StateTransformer](https://github.com/westoncb/under-game/blob/master/js/stateTransformer.js)
+- [Simulation](https://github.com/westoncb/under-game/blob/master/js/simulation.js)
+- [Events](https://github.com/westoncb/under-game/blob/master/js/events.js)
+- [EvolveAid](https://github.com/westoncb/under-game/blob/master/js/evolveAid.js)
 
 **StateTransformer** is the core structure of the framework. The idea is that programs would be defined as a set of StateTransformers (potentially arranged in a hierarchy, but no use of that is made here—in fact this program only uses one real StateTransformer). And Each StateTransformer defines logic for transforming some state in response to a sequence of events and/or time passage. It will also likely _generate_ its own events when certain conditions are met, or in response to system input events. As an example, GameStateTransformer generates an event when the worm collides with the cave wall.
 
@@ -53,4 +54,4 @@ There are a few framework-ey classes which are the primary components of the 'ar
 
 **Events** is a simple queue. Events may be added to it like `Events.enqueue('event_name', eventData);`. Every frame/step while the app is running Simulation will remove events from the queue one at a time, passing them to the current StateTransformer via a call to `activeStateTransformer.handleEvent(event);`.
 
-**EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info.
+**EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info. (Thinking about it, this probably should have just been a part of Simulation.)
