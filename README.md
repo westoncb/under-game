@@ -1,5 +1,5 @@
 # Under
-Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions (though I don't use raymarching, or any kind of lighting/shading system). The codebase is small and fairly well-documented.
+Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions. The codebase is small and fairly well-documented.
 
 - [Play here!](http://symbolflux.com/under) 
 - [Youtube video](https://youtu.be/Q010AFPItqY)
@@ -54,4 +54,4 @@ There are a few framework-ey classes which are the primary components of the 'ar
 
 **Events** is a simple queue. Events may be added to it like `Events.enqueue('event_name', eventData);`. Every frame/step while the app is running Simulation will remove events from the queue one at a time, passing them to the current StateTransformer via a call to `activeStateTransformer.handleEvent(event);`.
 
-**EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info.
+**EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info. (Thinking about it, this probably should have just been a part of Simulation.)
