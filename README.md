@@ -5,7 +5,8 @@ Under is a minimal game written in JavaScript and GLSL with procedural graphics 
 
 **Controls**: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
 
-![](screen.png)
+![](readme-media/screen.png)
+![](readme-media/anim.gif)
 
 ## Contents
 - [Project Background](#project-background)
