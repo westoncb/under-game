@@ -23,3 +23,13 @@ canvas {
 	opacity: 0.65;
 	font-family: 'Exo', sans-serif;
 }
+
+#nav {
+	color: white;
+	font-family: 'Exo', sans-serif;
+}
+
+a {
+	color: white;
+	text-decoration: none;
+}
