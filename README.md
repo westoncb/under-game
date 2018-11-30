@@ -1,11 +1,12 @@
 # Under
-Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions (though I don't use raymarching, or any kind of 3d lighting/shading system). The codebase is small and fairly well-documented.
+Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise and signed distance functions (though I don't use raymarching, or any kind of lighting/shading system). The codebase is small and fairly well-documented.
 
 [Play here!](http://symbolflux.com/under) 
 
 **Controls**: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
 
-![](screen.png)
+![](readme-media/screen.png)
+![](readme-media/anim.gif)
 
 ## Contents
 - [Project Background](#project-background)
@@ -29,7 +30,7 @@ The other aspect of the architecture experiment was to attempt a pragmatic balan
 I had an overall positive experience with the architecture. There are still some kinks to work out, but my plan is to extract a super minimal library/framework from it to use in future projects. I partly want that for doing more games—but I'm also curious how it would extend to domains outside of games.
 
 ## Code Overview
-If you want to get to the meat of how the game itself works, it's basically all in [gameStateTransformer.js](https://github.com/westoncb/under-game/blob/master/gameStateTransformer.js)
+If you want to get to the meat of how the game itself works, it's all in [gameStateTransformer.js](https://github.com/westoncb/under-game/blob/master/gameStateTransformer.js)
 
 It uses [quadShaderCanvas.js](https://github.com/westoncb/under-game/blob/master/quadShaderCanvas.js) to set up three.js with a single rectangular Mesh using a ShaderMaterial, which is fit exactly to the canvas dimensions. All of the visuals are created by a fragment shader applied to that Mesh surface.
 
