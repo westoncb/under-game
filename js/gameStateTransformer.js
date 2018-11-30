@@ -71,12 +71,12 @@ class GameStateTransformer extends StateTransformer {
 
     // Called by Simulation
     update(time, deltaTime) {
+        const state = this.state;
+
         if (this.focused) {
             this.assignEnvironmentalForces();
 
             this.updateKinematics(deltaTime);
-
-            this.updateCameraPosition();
 
             this.runEnvironmentalEventGenerators();
 
@@ -86,11 +86,10 @@ class GameStateTransformer extends StateTransformer {
 
             this.evolveAid.update(time, deltaTime);
 
-            this.updateGame(deltaTime);
+            state.gameTime += deltaTime;
+            state.time = time;
 
-            this.state.time = time;
-
-            this.mapStateToUniforms(this.state);
+            this.mapStateToUniforms(state);
         }
     }
 
@@ -156,23 +155,16 @@ class GameStateTransformer extends StateTransformer {
                                      evolve: (state, deltaTime) => {
                                         state.timeOutOfZone += deltaTime;
                                         state.pointZoneIntensity = Math.max(state.pointZoneIntensity - deltaTime, 0.);
-                                     }}
+                                     }},
+                                     {condition: (state) => !state.worm.dying,
+                                      evolve: (state, deltaTime) => {
+                                        state.points += BASE_POINTS_PER_SEC * deltaTime;
+                                        this.updateCameraPosition(state);
+                                        this.pointZoneSound.volume(state.pointZoneIntensity);
+                                      }}
                                   ];
 
         this.evolveAid = new EvolveAid(this.state, this.contingentEvolvers);
-    }
-
-    updateGame(deltaTime) {
-        const state = this.state;
-
-        state.gameTime += deltaTime;
-        
-        if (!state.worm.dying) {
-            state.points += BASE_POINTS_PER_SEC * deltaTime;
-        }
-
-        // This is more of a 'view' thing—not sure the best place for it...
-        this.pointZoneSound.volume(state.pointZoneIntensity);
     }
 
     // Called by Simulation
@@ -253,16 +245,14 @@ class GameStateTransformer extends StateTransformer {
         });
     }
 
-    updateCameraPosition() {
-        const camera = this.state.camera;
-        const worm = this.state.worm;
+    updateCameraPosition(state) {
+        const camera = state.camera;
+        const worm = state.worm;
 
-        if (!worm.dying) {
-            const target = worm.position.clone();
-            target.x += 5;
-            camera.position.addScaledVector(target.sub(camera.position), 
-                                            1 / 10);
-        }
+        const target = worm.position.clone();
+        target.x += 5;
+        camera.position.addScaledVector(target.sub(camera.position), 
+                                        1 / 10);
     }
 
     // All the worm segments aside from the 'head' segment exactly follow
