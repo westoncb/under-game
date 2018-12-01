@@ -12,6 +12,7 @@ Under is a minimal game written in JavaScript and GLSL with procedural graphics 
 ## Contents
 - [Project Background](#project-background)
 - [Code Overview](#code-overview)
+- [Build/Run](#build-and-run)
 
 ## Project Background
 I recently wrapped up a contract and had some free time on my hands, so I decided to make something 80% for fun. The other 20% was to test out some architecture ideas and to see if I could learn something about my personal bottlenecks in doing side projects. I originally planned to spend only 5 days on it, but that rapidly turned into 9 (full days), and I've been tweaking it and adding sounds when I get a few free moments since. So it's an approximately 10 day project.
@@ -55,3 +56,26 @@ There are a few framework-ey classes which are the primary components of the 'ar
 **Events** is a simple queue. Events may be added to it like `Events.enqueue('event_name', eventData);`. Every frame/step while the app is running Simulation will remove events from the queue one at a time, passing them to the current StateTransformer via a call to `activeStateTransformer.handleEvent(event);`.
 
 **EvolveAid** EvolveAid makes 'transient state' and 'contingent evolvers' work (these are used by StateTranformers). Check out the documentation in evolveAid.js for more info. (Thinking about it, this probably should have just been a part of Simulation.)
+
+
+## Build and Run
+```
+git clone https://github.com/westoncb/under-game
+cd under-game
+npm install
+```
+
+
+index.html loads `./build/bundle.js`. I wasn't sure about best practices for including build software in the package.json for an open source javascript project like this. I imagine you could build with whatever you prefer. I used Watchify personally, which you can set up like:
+
+```
+npm i watchify
+watchify ./js/index.js -o './build/bundle.js'
+```
+
+Then I serve the project with `http-server` (`npm i http-server`):
+```
+http-server -p 4000
+```
+
+Unfortunately, because of concerns I have about licensing issues with the sound files, they are not included in the repo; so when you run the game locally it will be silent unless you add your own sounds :/
