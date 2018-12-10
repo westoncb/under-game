@@ -1,7 +1,7 @@
 # Under
 Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise, signed distance functions, and [boolean/space-folding operators](http://mercury.sexy/hg_sdf/) applied to those functions. The codebase is small and fairly well-documented.
 
-- [Play here!](http://symbolflux.com/under) 
+- [Play here!](http://symbolflux.com/under) (Mobile not yet supported; just shows a video)
 - [Youtube video](https://youtu.be/Q010AFPItqY)
 
 **Controls**: Press up to go up, otherwise you'll go down. Skim the cave edge for more points—but don't run into it!
