@@ -1,4 +1,7 @@
 # Under
+
+[![run on repl.it](http://repl.it/badge/github/westoncb/under-game)](https://repl.it/github/westoncb/under-game)
+
 Under is a minimal game written in JavaScript and GLSL with procedural graphics produced mostly by noise, signed distance functions, and [boolean/space-folding operators](http://mercury.sexy/hg_sdf/) applied to those functions. The codebase is small and fairly well-documented.
 
 - [Play here!](http://symbolflux.com/under) (Mobile not yet supported; just shows a video)
