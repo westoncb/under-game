@@ -1,6 +1,6 @@
 class GameFragmentShader {
-	static getText() {
-		return `
+    static getText() {
+        return `
 
 			precision highp float;
 
@@ -186,8 +186,8 @@ class GameFragmentShader {
 			}
 
 			float caveDistance(vec2 uv, vec2 p) {
-				float topHeight = texture2D(topHeights, vec2(p.x, 0.)).a;
-				float bottomHeight = texture2D(bottomHeights, vec2(p.x, 0.)).a;
+				float topHeight = texture2D(topHeights, vec2(p.x, 0.)).r;
+				float bottomHeight = texture2D(bottomHeights, vec2(p.x, 0.)).r;
 				
 				float caveShutDistance = caveShutDeathRebirthRatio * (topHeight - bottomHeight)/2.;
 				float topDist = topHeight - caveShutDistance - uv.y;
@@ -230,8 +230,8 @@ class GameFragmentShader {
 					gl_FragColor = bgColor(uv) + flameVec;
 				}
 			}
-		`;
-	}
+		`
+    }
 }
 
-module.exports = GameFragmentShader;
+module.exports = GameFragmentShader
